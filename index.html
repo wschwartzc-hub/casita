@@ -1822,8 +1822,9 @@ async function afterLogin(){
   try{
     const c=await sb();
     /* Dos queries separadas — más confiable que join con nombres prefijados */
-    const{data:mem}=await c.from('casita_household_members')
-      .select('*').eq('user_id',supaUser.id).maybeSingle();
+    const{data:mems}=await c.from('casita_household_members')
+      .select('*').eq('user_id',supaUser.id).order('joined_at').limit(1);
+    const mem=mems?.[0];
     if(!mem){hideAuth();showAuth('create');return;}
     const{data:hh}=await c.from('casita_households')
       .select('*').eq('id',mem.household_id).single();
