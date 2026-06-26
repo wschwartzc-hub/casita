@@ -1844,21 +1844,17 @@ async function hhCreate(){
   if(!name){showAuthErr('Ponle nombre a tu hogar');return;}
   if(!myName){showAuthErr('¿Cómo te llamas?');return;}
   try{
-    const code=Math.random().toString(36).slice(2,6).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+    const code=Math.random().toString(36).slice(2,6).toUpperCase()+
+               Math.random().toString(36).slice(2,6).toUpperCase();
     const c=await sb();
-    const{data:hh,error:he}=await c.from('casita_households').insert({name,invite_code:code,created_by:supaUser.id}).select().single();
-    if(he)throw he;
-    const{error:me}=await c.from('casita_household_members').insert({household_id:hh.id,user_id:supaUser.id,display_name:myName,icon:'👤',color:'#8FAE8B',role:'admin'});
-    if(me)throw me;
-    // Crear categorías y cuentas por defecto
-    const defCats=defaultCategories(hh.id);
-    await c.from('casita_categories').insert(defCats.map(d=>({...d,household_id:hh.id})));
-    await c.from('casita_accounts').insert([
-      {household_id:hh.id,name:'Efectivo',icon:'👛',color:'#E0A287',opening_balance:0},
-      {household_id:hh.id,name:'Banco',icon:'🏦',color:'#8FB1C9',opening_balance:0},
-    ]);
-    household=hh;await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
-    toast(`🏠 ¡Hogar creado! Código: ${code}`);
+    const{data,error}=await c.rpc('casita_create_household',{
+      p_name:name, p_invite_code:code,
+      p_member_name:myName, p_member_icon:'👤', p_member_color:'#8FAE8B'
+    });
+    if(error)throw error;
+    /* Recargar sesión para obtener household */
+    await afterLogin();
+    toast(`🏠 ¡Hogar creado! Código: ${data.invite_code}`);
   }catch(e){showAuthErr(e.message||'No se pudo crear el hogar');}
 }
 
