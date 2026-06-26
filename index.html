@@ -1038,10 +1038,10 @@ function viewDinero(){
   ${topbar('Dinero',monthLabel(m),null,'#4A8ABF')}
   <div class="month">
     <button class="iconbtn" data-act="month:-1">‹</button>
-    <button data-act="openmonthpick:dinero" style="background:none;border:none;cursor:pointer;padding:4px 12px;border-radius:12px">
-      <div class="b">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
+    <button data-act="openmonthpick:dinero" style="background:none;border:none;cursor:pointer;padding:4px 10px;border-radius:12px;white-space:nowrap;flex:1;text-align:center">
+      <span class="b" style="font-size:16px">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></span>
     </button>
-    <div style="display:flex;align-items:center;gap:6px">
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
       ${m!==ym(todayISO())?`<button class="chip" style="font-size:11px;padding:3px 10px;height:auto" data-act="gotodaydinero">Hoy</button>`:''}
       <button class="iconbtn" data-act="month:1">›</button>
     </div>
@@ -1430,7 +1430,7 @@ function viewCalendar(){
     <div class="between" style="margin-bottom:12px;padding:0 2px">
       <button class="iconbtn" data-act="calmonth:-1">‹</button>
       <div style="text-align:center">
-        <button data-act="openmonthpick" style="background:none;border:none;cursor:pointer;padding:4px 10px;border-radius:12px;active:opacity:.7">
+        <button data-act="openmonthpick" style="background:none;border:none;cursor:pointer;padding:4px 10px;border-radius:12px;white-space:nowrap">
           <div class="b" style="font-size:17px">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
         </button>
         ${moodStats?`<div class="hint" style="margin-top:2px">${moodStats}</div>`:''}
