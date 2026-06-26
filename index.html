@@ -1315,7 +1315,10 @@ function viewAjustes(){
   return`${topbar('Ajustes','Perfil y preferencias','mas','#6E8C6A')}
   ${sH('Perfil','','','perfil')}
   <div class="card">
-    <div class="f"><label>Tu nombre en el hogar</label><input data-change="setting:display_name" placeholder="¿Cómo te llamas?" value="${esc(myMember?.display_name||'')}"></div>
+    <div class="f"><label>Tu nombre en el hogar</label>
+      <input id="memberNameEdit" placeholder="¿Cómo te llamas?" value="${esc(myMember?.display_name||'')}">
+    </div>
+    <button class="btn ghost" data-act="savemembername" style="width:100%;margin-bottom:4px">Guardar mi nombre</button>
     <div class="f"><label>Moneda</label><select data-change="setting:currency">${curOpts}</select></div>
     <div class="f"><label>Género (para el saludo)</label>
       <div class="seg2" data-pick="settingGender">
@@ -1418,11 +1421,19 @@ function viewCalendar(){
   return`
   ${topbar('📅 Plan & Clima',capitalize(monthLabel(m)),null,'#54C5B8')}
   ${weatherWidget()}
-  <div class="card" style="padding:16px 14px 14px">
+  <div class="card" style="padding:16px 14px 14px;margin-top:14px">
     <div class="between" style="margin-bottom:12px;padding:0 2px">
       <button class="iconbtn" data-act="calmonth:-1">‹</button>
-      <div style="text-align:center"><div class="b" style="font-size:17px">${capitalize(monthLabel(m))}</div>${moodStats?`<div class="hint" style="margin-top:2px">${moodStats}</div>`:''}</div>
-      <button class="iconbtn" data-act="calmonth:1">›</button>
+      <div style="text-align:center">
+        <button data-act="openmonthpick" style="background:none;border:none;cursor:pointer;padding:4px 10px;border-radius:12px;active:opacity:.7">
+          <div class="b" style="font-size:17px">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
+        </button>
+        ${moodStats?`<div class="hint" style="margin-top:2px">${moodStats}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${m!==ym(todayISO())?`<button class="chip" style="font-size:11px;padding:3px 10px;height:auto" data-act="gotoday">Hoy</button>`:''}
+        <button class="iconbtn" data-act="calmonth:1">›</button>
+      </div>
     </div>
     <div class="cal-grid">${headRow}${cells}</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center">${moodLegend}</div>
@@ -1564,12 +1575,15 @@ function openContribution(goalId){
 function openList(id){
   const editing=id&&id!=='new';const l=editing?lists.find(x=>x.id===id):null;
   DRAFT={_kind:'list',_id:editing?id:null,name:l?.name||'',kind:l?.kind||'tareas',icon:l?.icon||'✅',color:l?.color||'#8FAE8B',vis:l?.visibility||'hogar'};
-  const isT=DRAFT.kind==='tareas';
+  const kinds=[['tareas','✅','Tareas'],['super','🛒','Súper'],['trabajo','💼','Trabajo'],['pagos','💰','Pagos'],['viaje','✈️','Viaje'],['peliculas','🎬','Películas']];
   modal(`${sheetHead(editing?'Editar lista':'Nueva lista','🗒️')}
-    <div class="f"><label>Nombre</label><input id="fld_name" placeholder="Ej. Pendientes, Súper semanal" value="${esc(DRAFT.name)}"></div>
-    <div class="f"><label>Tipo</label><div class="seg2" data-pick="kind">
-      <button type="button" class="opt ${isT?'active':''}" data-pick-val="tareas">✅ Tareas</button>
-      <button type="button" class="opt ${!isT?'active':''}" data-pick-val="super">🛒 Súper</button></div></div>
+    <div class="f"><label>Nombre</label><input id="fld_name" placeholder="Ej. Súper semanal, Pendientes" value="${esc(DRAFT.name)}"></div>
+    <div class="f"><label>Tipo de lista</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${kinds.map(([v,e,lb])=>`<button type="button" class="chip ${DRAFT.kind===v?'active':''}" data-act="setkind:${v}">${e} ${lb}</button>`).join('')}
+      </div>
+      <input id="fld_kind" placeholder="O escribe el tuyo: ej. Películas, Deudas…" value="${esc(DRAFT.kind)}">
+    </div>
     <div class="f"><label>Ícono</label>${emojiPicker('icon',DRAFT.icon)}</div>
     <div class="f"><label>Color</label>${colorPicker('color',DRAFT.color)}</div>
     <div class="f"><label>Visibilidad</label><div class="seg2" data-pick="vis">
@@ -1665,7 +1679,7 @@ async function saveForm(kind){
       const c=await sb();const{data:row}=await c.from('casita_contributions').insert(o).select().single();contributions.push(row);
     }else if(kind==='list'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
-      const o={name,kind:DRAFT.kind,icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
+      const o={name,kind:(fval('kind')||DRAFT.kind||'tareas').trim(),icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
       if(DRAFT._id){await dbUpdate('casita_lists',DRAFT._id,o);lists=lists.map(l=>l.id===DRAFT._id?{...l,...o}:l);}
       else{const row=await dbInsert('casita_lists',o);lists.push(row);}
     }else if(kind==='item'){
@@ -1756,8 +1770,12 @@ function doAct(token){
     case'hh:create': hhCreate();return;
     case'hh:join':   hhJoin();return;
     case'signout':   supaSignOut();return;
-    case'syncnow':   fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));return;
-    case'savehh':    saveHouseholdName();return;
+    case'syncnow':        fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));return;
+    case'savehh':         saveHouseholdName();return;
+    case'savemembername': saveMemberName();return;
+    case'openmonthpick':  openMonthPicker();return;
+    case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value;if(mon&&yr){ui.calMonth=yr+'-'+mon;closeModal();render();}return;}
+    case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
   }
   /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
@@ -1779,7 +1797,12 @@ function doAct(token){
     case'theme':      mySettings.accent=p[1];applyTheme();saveMySettings();render();break;
     case'setclockcolor': mySettings.clockColor=p[1];applyTheme();saveMySettings();break;
     case'setheadcolor':  mySettings.headColor=p[1];applyTheme();saveMySettings();break;
-    case'visfilter':  ui.visFilter=p[1];render();break;
+    case'setkind': {
+      DRAFT.kind=p[1];
+      const ki=$('#fld_kind');if(ki)ki.value=p[1];
+      $$('[data-act^="setkind:"]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-act')==='setkind:'+p[1]));
+      break;
+    }
   }
 }
 
@@ -1928,9 +1951,39 @@ async function saveHouseholdName(){
   if(!name||!household)return;
   try{
     const c=await sb();
-    await c.from('casita_households').update({name}).eq('id',household.id);
-    household.name=name;render();toast('✓ Nombre del hogar actualizado');
-  }catch(e){toast('Error al guardar');}
+    const{error}=await c.from('casita_households').update({name}).eq('id',household.id);
+    if(error)throw error;
+    household.name=name;
+    render();toast('✓ Nombre del hogar guardado');
+  }catch(e){toast('Error: '+(e.message||'No se pudo guardar'));console.error(e);}
+}
+
+async function saveMemberName(){
+  const name=$('#memberNameEdit')?.value?.trim();
+  if(!name||!myMember)return;
+  try{
+    const c=await sb();
+    const{error}=await c.from('casita_household_members').update({display_name:name}).eq('id',myMember.id);
+    if(error)throw error;
+    myMember.display_name=name;
+    render();toast('✓ Nombre guardado');
+  }catch(e){toast('Error: '+(e.message||'No se pudo guardar'));console.error(e);}
+}
+
+function openMonthPicker(){
+  const [curY,curM]=ui.calMonth.split('-').map(Number);
+  const todayY=parseInt(todayISO().slice(0,4));
+  const yearOpts=Array.from({length:8},(_,i)=>todayY-4+i)
+    .map(y=>`<option value="${y}" ${y===curY?'selected':''}>${y}</option>`).join('');
+  const mons=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const monOpts=mons.map((mn,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${(i+1)===curM?'selected':''}>${mn}</option>`).join('');
+  modal(`${sheetHead('Ir a mes y año','📅')}
+    <div class="f2" style="gap:12px">
+      <div class="f"><label>Mes</label><select id="pickMon">${monOpts}</select></div>
+      <div class="f"><label>Año</label><select id="pickYear">${yearOpts}</select></div>
+    </div>
+    <button class="btn pix" data-act="applymonthpick" style="width:100%;margin-top:4px">Ir →</button>
+    <button class="btn ghost mt" data-act="gotoday" style="width:100%">📍 Ir a hoy</button>`);
 }
 
 /* ═══════════════════════════════════════════════════════
