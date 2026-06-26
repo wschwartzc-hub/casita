@@ -1915,13 +1915,23 @@ async function hhJoin(){
   const myName=($('#hhMyName')||{}).value?.trim();
   if(!code||code.length<6){showAuthErr('Ingresa el código del hogar');return;}
   if(!myName){showAuthErr('¿Cómo te llamas?');return;}
+  if(!supaUser?.id){showAuthErr('Sesión no encontrada. Cierra y vuelve a entrar.');return;}
+  const btn=$('[data-act="hh:join"]');
+  if(btn){btn.disabled=true;btn.textContent='Uniéndome...';}
   try{
-    const c=await sb();const{data:hid,error}=await c.rpc('casita_join_household',{p_code:code,p_name:myName,p_icon:'👤',p_color:'#8FAE8B'});
+    const c=await sb();
+    const{data:hid,error}=await c.rpc('casita_join_household',{
+      p_code:code,p_name:myName,p_icon:'👤',p_color:'#8FAE8B',
+      p_user_id:supaUser.id   // explícito por si auth.uid() falla en el servidor
+    });
     if(error)throw error;
     const{data:hh}=await c.from('casita_households').select('*').eq('id',hid).single();
     household=hh;await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
-    toast('✓ ¡Te uniste al hogar!');
-  }catch(e){showAuthErr(e.message||'Código inválido o expirado');}
+    toast('✓ ¡Bienvenida al hogar '+esc(hh.name||'')+'! 🏠');
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Unirme al hogar';}
+    showAuthErr(e.message||'Código inválido o expirado');
+  }
 }
 
 /* ── Auth screen show/hide ── */
