@@ -518,6 +518,20 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function money(n){const s=mySettings||{};return new Intl.NumberFormat('es-MX',{style:'currency',currency:s.currency||'MXN',maximumFractionDigits:2}).format(Number(n)||0)}
 function money0(n){const s=mySettings||{};return new Intl.NumberFormat('es-MX',{style:'currency',currency:s.currency||'MXN',maximumFractionDigits:0}).format(Number(n)||0)}
 function moneyShort(n){if(!n)return'';if(n>=1000000)return'$'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'$'+Math.round(n/1000)+'k';return'$'+Math.round(n)}
+
+/* ── Tipo de cambio en tiempo real (fawazahmed0 CDN — gratis, sin API key) ── */
+const _rates={};
+async function fetchRate(from,to){
+  if(from===to)return 1;
+  const key=from+'->'+to;
+  if(_rates[key])return _rates[key];
+  try{
+    const res=await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/'+from.toLowerCase()+'.json');
+    const d=await res.json();
+    const rate=d[from.toLowerCase()][to.toLowerCase()];
+    _rates[key]=rate;return rate;
+  }catch(e){return null;}
+}
 function addDays(d,n){const dt=new Date(d+'T00:00');dt.setDate(dt.getDate()+n);return dt.toISOString().slice(0,10)}
 function addMonths(d,n){const dt=new Date(d+'T00:00');dt.setMonth(dt.getMonth()+n);return dt.toISOString().slice(0,10)}
 function shiftMonth(m,n){const [y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
@@ -1095,8 +1109,9 @@ function txRow(t){
       <div class="ttl">${esc(t.note||c.name)}${visBadge}</div>
       <div class="sub">${esc(c.name)} · <span style="color:${mb.color}">${mb.icon} ${esc(mb.display_name)}</span></div>
     </div>
-    <div class="amt ${t.type==='ingreso'?'good':''}" style="${t.type==='ingreso'?'color:#30A868':''}">
-      ${sign}${money0(t.amount)}
+    <div style="text-align:right">
+      <div class="amt ${t.type==='ingreso'?'good':''}" style="${t.type==='ingreso'?'color:#30A868':''}">${sign}${money0(t.amount)}</div>
+      ${t.original_currency?`<div style="font-size:10px;color:var(--ink2);font-weight:700">${t.original_amount} ${t.original_currency}</div>`:''}
     </div>
   </div>`;
 }
@@ -1534,18 +1549,29 @@ function openForm(token){
 
 function openTx(id){
   const editing=id&&id!=='new';const t=editing?transactions.find(x=>x.id===id):null;
+  const homeCur=mySettings.currency||'MXN';
   if(DRAFT._kind!=='tx'){
-    DRAFT={_kind:'tx',_id:editing?id:null,type:t?.type||'gasto',amount:t?.amount||'',
+    DRAFT={_kind:'tx',_id:editing?id:null,type:t?.type||'gasto',
+      amount:t?.original_amount||t?.amount||'',
       category:t?.category_id||null,account:t?.account_id||(accounts[0]?.id)||null,
-      note:t?.note||'',date:t?.date||todayISO(),vis:t?.visibility||'hogar'};
+      note:t?.note||'',date:t?.date||todayISO(),vis:t?.visibility||'hogar',
+      txCurrency:t?.original_currency||homeCur,txRate:1};
   }
   const isG=DRAFT.type==='gasto';
+  const CURS=['MXN','USD','EUR','COP','ARS','CLP'];
   modal(`${sheetHead(editing?'Editar movimiento':'Nuevo movimiento',isG?'💸':'💰')}
-    <div class="seg2" style="margin-bottom:16px">
+    <div class="seg2" style="margin:14px 0 16px">
       <button type="button" class="opt ${isG?'active':''}" data-act="txtype:gasto">Gasto</button>
       <button type="button" class="opt ${!isG?'active':''}" data-act="txtype:ingreso">Ingreso</button>
     </div>
-    <div class="f"><label>Monto</label><input id="fld_amount" class="amount-in" inputmode="decimal" placeholder="0" value="${esc(DRAFT.amount)}"></div>
+    <div class="f">
+      <label>Monto</label>
+      <input id="fld_amount" class="amount-in" inputmode="decimal" placeholder="0" value="${esc(DRAFT.amount)}" style="font-size:30px;font-weight:900;text-align:center">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${CURS.map(c=>`<button type="button" class="chip ${DRAFT.txCurrency===c?'active':''}" data-act="settxcur:${c}">${c}</button>`).join('')}
+      </div>
+      <div id="rateInfo" style="font-size:12px;color:var(--ink2);margin-top:6px;min-height:18px;font-weight:700"></div>
+    </div>
     <div class="f"><label>Categoría</label>${catPicker('category',DRAFT.type,DRAFT.category)}</div>
     <div class="f"><label>Cuenta</label>${accPicker('account',DRAFT.account)}</div>
     <div class="f"><label>Nota (opcional)</label><input id="fld_note" placeholder="¿En qué fue?" value="${esc(DRAFT.note)}"></div>
@@ -1553,10 +1579,12 @@ function openTx(id){
     <div class="f"><label>Visibilidad</label>
       <div class="seg2" data-pick="vis">
         <button type="button" class="opt ${DRAFT.vis==='hogar'?'active':''}" data-pick-val="hogar">🏠 Del hogar</button>
-        <button type="button" class="opt ${DRAFT.vis==='personal'?'active':''}" data-pick-val="personal">👤 Personal (monto visible, detalle privado)</button>
+        <button type="button" class="opt ${DRAFT.vis==='personal'?'active':''}" data-pick-val="personal">👤 Personal</button>
       </div></div>
     <button class="btn pix" data-act="save:tx">${editing?'Guardar cambios':'Agregar'}</button>
     ${editing?`<button class="btn danger mt" data-act="del:tx:${id}">Eliminar</button>`:''}`);
+  /* Si moneda extranjera, auto-fetch tasa */
+  if(DRAFT.txCurrency!==homeCur) setTimeout(()=>doAct('settxcur:'+DRAFT.txCurrency),80);
 }
 function openGoal(id){
   const editing=id&&id!=='new';const g=editing?goals.find(x=>x.id===id):null;
@@ -1677,10 +1705,17 @@ async function saveForm(kind){
   captureModal();
   try{
     if(kind==='tx'){
-      const amount=parseAmt(fval('amount'));if(amount<=0)return shake('#fld_amount');
+      const inputAmt=parseAmt(fval('amount'));if(inputAmt<=0)return shake('#fld_amount');
+      const homeCur=mySettings.currency||'MXN';
+      const txCur=DRAFT.txCurrency||homeCur;
+      const txRate=DRAFT.txRate||1;
+      const amount=txCur!==homeCur?inputAmt*txRate:inputAmt;
+      if(!amount||amount<=0)return shake('#fld_amount');
       const cat=DRAFT.category||(categories.find(c=>c.type===DRAFT.type)?.id)||null;
       const acc=DRAFT.account||(accounts[0]?.id)||null;
-      const o={type:DRAFT.type,amount,category_id:cat,account_id:acc,note:fval('note').trim(),date:fval('date')||todayISO(),visibility:DRAFT.vis||'hogar'};
+      const o={type:DRAFT.type,amount,category_id:cat,account_id:acc,note:fval('note').trim(),date:fval('date')||todayISO(),visibility:DRAFT.vis||'hogar',
+        original_amount:txCur!==homeCur?inputAmt:null,
+        original_currency:txCur!==homeCur?txCur:null};
       if(DRAFT._id){await dbUpdate('casita_transactions',DRAFT._id,o);transactions=transactions.map(t=>t.id===DRAFT._id?{...t,...o}:t);}
       else{const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
     }else if(kind==='goal'){
@@ -1819,6 +1854,24 @@ function doAct(token){
       DRAFT.kind=p[1];
       const ki=$('#fld_kind');if(ki)ki.value=p[1];
       $$('[data-act^="setkind:"]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-act')==='setkind:'+p[1]));
+      break;
+    }
+    case'settxcur': {
+      const cur=p[1],homeCur=mySettings.currency||'MXN';
+      DRAFT.txCurrency=cur;
+      $$('[data-act^="settxcur:"]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-act')==='settxcur:'+cur));
+      const ri=$('#rateInfo'),amtEl=$('#fld_amount');
+      if(cur===homeCur){DRAFT.txRate=1;if(ri)ri.textContent='';break;}
+      if(ri)ri.innerHTML='<span style="opacity:.6">⏳ Obteniendo tipo de cambio…</span>';
+      fetchRate(cur,homeCur).then(rate=>{
+        if(!rate){DRAFT.txRate=null;if(ri)ri.textContent='⚠️ No se pudo obtener el tipo de cambio';return;}
+        DRAFT.txRate=rate;
+        const amt=parseAmt(amtEl?.value||'0');
+        if(ri){
+          const conv=amt>0?` · <b>${money0(amt*rate)} ${homeCur}</b>`:'';
+          ri.innerHTML=`1 ${cur} = ${rate.toFixed(4)} ${homeCur}${conv}`;
+        }
+      });
       break;
     }
   }
@@ -1985,6 +2038,10 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='q'){ui.q=t.value;const box=$('#txlist');if(box)box.innerHTML=renderTxList();}
+  if(t.id==='fld_amount'&&DRAFT.txCurrency&&DRAFT.txRate&&DRAFT.txRate!==1){
+    const ri=$('#rateInfo'),homeCur=mySettings.currency||'MXN',amt=parseAmt(t.value);
+    if(ri&&amt>0)ri.innerHTML=`1 ${DRAFT.txCurrency} = ${DRAFT.txRate.toFixed(4)} ${homeCur} · <b>${money0(amt*DRAFT.txRate)} ${homeCur}</b>`;
+  }
   if(t.getAttribute?.('data-change')){const tok=t.getAttribute('data-change');
     if(tok.startsWith('setting:')){const f=tok.split(':')[1];mySettings[f]=t.value;saveMySettings();if(f==='currency')render();}}
 });
