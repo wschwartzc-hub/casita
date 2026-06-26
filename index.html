@@ -1819,13 +1819,20 @@ async function authDoForgot(){
 }
 
 async function afterLogin(){
-  const c=await sb();
-  const{data:memData}=await c.from('casita_household_members').select('*,households(*)').eq('user_id',supaUser.id).maybeSingle();
-  if(memData?.households){
-    household=memData.households;myMember=memData;
-    await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
-    toast(`Bienvenido de vuelta 🏠`);
-  }else{
+  try{
+    const c=await sb();
+    const{data:memData}=await c.from('casita_household_members')
+      .select('*, casita_households(*)')
+      .eq('user_id',supaUser.id).maybeSingle();
+    if(memData?.casita_households){
+      household=memData.casita_households;myMember=memData;
+      await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
+      toast('Bienvenido de vuelta 🏠');
+    }else{
+      hideAuth();showAuth('create');
+    }
+  }catch(e){
+    console.warn('afterLogin:',e);
     hideAuth();showAuth('create');
   }
 }
