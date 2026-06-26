@@ -19,7 +19,7 @@
   --good:#7FA77B; --bad:#D58E8E; --gold:#E7B84B;
   --r:18px; --sh:0 6px 18px rgba(120,105,80,.10); --sh2:0 10px 26px rgba(120,105,80,.13);
 }
-html,body{height:100%;overflow:hidden}
+html,body{height:100%;overscroll-behavior:none}
 body{
   font-family:'Nunito',system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
@@ -160,9 +160,9 @@ body{
 .fab:active{transform:scale(.92)}
 
 /* bottom nav */
-#nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
+#nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;
   background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;
-  padding:9px 6px calc(9px + env(safe-area-inset-bottom,0px));z-index:30;box-shadow:0 -4px 22px rgba(120,105,80,.06)}
+  padding:9px 6px calc(9px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 22px rgba(120,105,80,.06)}
 .nav-b{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;
   cursor:pointer;color:var(--ink3);font-size:10px;font-weight:800;padding:4px;letter-spacing:.2px}
 .nav-b.on{color:var(--accent)}
@@ -398,8 +398,8 @@ nav{z-index:15!important}
 .cal-cell.future-cell { opacity: .65; }
 .cal-cell.empty-cell { cursor: default; }
 .cal-cell .cal-num { font-size: 11px; font-weight: 700; color: var(--ink); line-height: 1.3; padding-left: 3px; }
-.cal-cell .cal-wx { font-size: 14px; line-height: 1.3; text-align: center; margin: 1px 0; }
-.cal-cell .cal-mood { font-size: 18px; line-height: 1.1; text-align: center; }
+.cal-cell .cal-wx { font-size: 14px; line-height: 1.3; text-align: center; margin: 2px 0 0; }
+.cal-cell .cal-mood { font-size: 16px; line-height: 1.1; text-align: center; margin-top: 3px; }
 .cal-cell .cal-dots { display: flex; justify-content: center; gap: 2px; margin-top: 2px; }
 .cal-cell .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 .today-ring { position: absolute; inset: 2px; border: 2px solid var(--strong); border-radius: 10px; pointer-events: none; }
@@ -788,7 +788,7 @@ const NAV=[
   {v:'dinero', label:'Dinero', emoji:'💰'},
   {v:'metas',  label:'Metas',  emoji:'🎯'},
   {v:'listas', label:'Listas', emoji:'📋'},
-  {v:'plan',   label:'Plan',   emoji:'📅'},
+  {v:'plan',   label:'Planif.',emoji:'📅'},
   {v:'mas',    label:'Más',    emoji:'☰'},
 ];
 const NAV_COLS=['#8FAE8B','#8FB1C9','#B3A2D1','#E0A287','#54C5B8','#D58E8E'];
@@ -1035,8 +1035,27 @@ function viewInicio(){
   ${sH('Metas','Ver todas','metas','metas')}
   <div class="card">${metasHtml}</div>
 
-  ${sH('☀️ Clima','Ver plan','plan','clima')}
-  ${weatherWidget()}
+  ${sH('📅 Próximos días','Ver planificador','plan','#54C5B8')}
+  ${(()=>{
+    const hoy=todayISO();
+    const dias=[];
+    for(let i=0;i<14&&dias.length<5;i++){
+      const d=addDays(hoy,i);
+      const rems=reminders.filter(r=>!r.done&&r.date===d).length;
+      const txs=transactions.filter(t=>t.date===d).length;
+      if(rems+txs>0) dias.push({date:d,rems,txs,total:rems+txs});
+    }
+    if(!dias.length) return '<div class="card"><div class="empty" style="padding:14px">Sin eventos próximos · ¡Todo al día! 🎉</div></div>';
+    return '<div class="card list">'+dias.map(d=>{
+      const parts=[d.rems>0?d.rems+' recordatorio'+(d.rems>1?'s':''):'',d.txs>0?d.txs+' movimiento'+(d.txs>1?'s':''):''].filter(Boolean).join(' · ');
+      const lbl=d.date===hoy?'🔴 Hoy':d.date===addDays(hoy,1)?'Mañana':dayLabel(d.date).split(',')[0];
+      return '<div class="item" data-go="plan">'
+        +'<div class="ic" style="background:var(--soft);font-size:11px;font-weight:900;color:var(--strong)">'+lbl+'</div>'
+        +'<div class="mid"><div class="ttl">'+fdate(d.date)+'</div><div class="sub">'+parts+'</div></div>'
+        +'<span class="amt" style="color:var(--strong);font-size:18px;font-weight:900">'+d.total+'</span>'
+        +'</div>';
+    }).join('')+'</div>';
+  })()}
 
   ${personalSummary}
 
@@ -1449,7 +1468,7 @@ function viewCalendar(){
   const moodLegend=MOOD_DATA.map(m=>`<span style="font-size:12px">${m.e}<span style="font-size:10px;color:var(--ink2)"> ${m.d}</span></span>`).join('  ');
   const upRem=[...reminders].filter(r=>!r.done&&r.date&&r.date.startsWith(m)&&r.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
   return`
-  ${topbar('📅 Plan & Clima',capitalize(monthLabel(m)),null,'#54C5B8')}
+  ${topbar('📅 Planificador',capitalize(monthLabel(m)),null,'#54C5B8')}
   ${weatherWidget()}
   <div class="card" style="padding:16px 14px 14px;margin-top:14px">
     <div class="between" style="margin-bottom:12px;padding:0 2px">
