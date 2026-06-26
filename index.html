@@ -1357,12 +1357,15 @@ function viewAjustes(){
     <button class="btn ghost" data-act="savehh" style="width:100%;margin-bottom:12px">Guardar nombre del hogar</button>
     <div class="between" style="margin-bottom:8px">
       <div class="k" style="font-size:12px;color:var(--ink2)">Código de invitación</div>
-      <button class="btn ghost sm" data-act="copycode">Copiar código</button>
     </div>
-    <div class="between"><div class="hint" style="margin:0">Código de invitación:</div>
-      <div style="font-size:18px;font-weight:900;letter-spacing:3px;color:var(--strong);font-family:'Outfit',sans-serif">${household?.invite_code||'—'}</div>
+    <div style="background:var(--soft);border-radius:16px;padding:16px;text-align:center;margin-bottom:12px">
+      <div style="font-size:30px;font-weight:900;letter-spacing:6px;color:var(--strong);font-family:'Outfit',sans-serif">${household?.invite_code||'—'}</div>
+      <div style="font-size:11px;color:var(--ink2);margin-top:4px">Comparte este código con tu familia</div>
     </div>
-    <div class="hint" style="margin-top:8px">Comparte este código para que tu familia se una al hogar.</div>
+    <div class="seg2">
+      <button class="btn ghost" data-act="copycode">📋 Copiar código</button>
+      <button class="btn" style="background:#25D366;color:#fff;border:none" data-act="sharewa">💬 Enviar por WhatsApp</button>
+    </div>
   </div>
   ${sH('Cuenta','','','sync')}
   <div class="card">
@@ -1782,7 +1785,8 @@ function doAct(token){
     case'hh:create': hhCreate();return;
     case'hh:join':   hhJoin();return;
     case'signout':   supaSignOut();return;
-    case'syncnow':        fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));return;
+    case'copycode':   copyInviteCode();return;
+    case'sharewa':    shareWhatsApp();return;
     case'savehh':         saveHouseholdName();return;
     case'savemembername': saveMemberName();return;
     case'openmonthpick':  openMonthPicker('cal');return;
@@ -2000,6 +2004,48 @@ function openMonthPicker(target='cal'){
     </div>
     <button class="btn pix" data-act="applymonthpick" style="width:100%;margin-top:4px">Ir →</button>
     <button class="btn ghost mt" data-act="${target==='dinero'?'gotodaydinero':'gotoday'}" style="width:100%">📍 Ir a hoy</button>`);
+}
+
+async function copyInviteCode(){
+  const code=household?.invite_code;
+  if(!code){toast('Sin código de invitación');return;}
+  try{
+    await navigator.clipboard.writeText(code);
+    toast('✓ Código copiado: '+code);
+  }catch(e){
+    /* fallback para iOS */
+    const el=document.createElement('textarea');
+    el.value=code;el.style.position='fixed';el.style.opacity='0';
+    document.body.appendChild(el);el.select();
+    try{document.execCommand('copy');toast('✓ Código copiado: '+code);}
+    catch(e2){toast('Código: '+code);}
+    document.body.removeChild(el);
+  }
+}
+
+function shareWhatsApp(){
+  const code=household?.invite_code;
+  const hhName=household?.name||'nuestro hogar';
+  const myName=myMember?.display_name||'Tu familiar';
+  const appUrl='https://casita-io.netlify.app';
+  const msg=
+`🏠 *${myName} te invita a unirte a "${hhName}" en Casita*
+
+Casita es nuestra app para llevar juntos las finanzas del hogar: gastos, metas de ahorro, listas del súper y más.
+
+👉 *Tu código de invitación:*
+*${code}*
+
+Pasos para unirte:
+1️⃣ Entra a ${appUrl}
+2️⃣ Crea tu cuenta con tu correo
+3️⃣ Toca *"¿Te invitaron? Unirte con código"*
+4️⃣ Escribe el código: *${code}*
+
+¡Te espero adentro! 🎉`;
+
+  const url='https://wa.me/?text='+encodeURIComponent(msg);
+  window.open(url,'_blank');
 }
 
 /* ═══════════════════════════════════════════════════════
