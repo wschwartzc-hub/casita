@@ -1039,20 +1039,32 @@ function viewInicio(){
   ${(()=>{
     const hoy=todayISO();
     const dias=[];
-    for(let i=0;i<14&&dias.length<5;i++){
+    for(let i=0;i<14&&dias.length<4;i++){
       const d=addDays(hoy,i);
-      const rems=reminders.filter(r=>!r.done&&r.date===d).length;
-      const txs=transactions.filter(t=>t.date===d).length;
-      if(rems+txs>0) dias.push({date:d,rems,txs,total:rems+txs});
+      const rs=reminders.filter(r=>!r.done&&r.date===d);
+      const ts=transactions.filter(t=>t.date===d);
+      if(rs.length+ts.length>0) dias.push({date:d,rs,ts});
     }
-    if(!dias.length) return '<div class="card"><div class="empty" style="padding:14px">Sin eventos próximos · ¡Todo al día! 🎉</div></div>';
-    return '<div class="card list">'+dias.map(d=>{
-      const parts=[d.rems>0?d.rems+' recordatorio'+(d.rems>1?'s':''):'',d.txs>0?d.txs+' movimiento'+(d.txs>1?'s':''):''].filter(Boolean).join(' · ');
-      const lbl=d.date===hoy?'🔴 Hoy':d.date===addDays(hoy,1)?'Mañana':dayLabel(d.date).split(',')[0];
-      return '<div class="item" data-go="plan">'
-        +'<div class="ic" style="background:var(--soft);font-size:11px;font-weight:900;color:var(--strong)">'+lbl+'</div>'
-        +'<div class="mid"><div class="ttl">'+fdate(d.date)+'</div><div class="sub">'+parts+'</div></div>'
-        +'<span class="amt" style="color:var(--strong);font-size:18px;font-weight:900">'+d.total+'</span>'
+    if(!dias.length) return '<div class="card" style="text-align:center;padding:18px 16px"><div style="font-size:22px">✨</div><div style="font-weight:800;margin-top:4px">¡Sin eventos próximos!</div><div style="font-size:12px;color:var(--ink2);margin-top:2px">Todo al día por ahora</div></div>';
+    const dt=d=>{const dt=new Date(d+'T00:00');return{num:dt.getDate(),mes:capitalize(dt.toLocaleDateString('es-MX',{month:'short'})),wd:capitalize(dt.toLocaleDateString('es-MX',{weekday:'long'}))}};
+    return '<div class="card" style="padding:0;overflow:hidden">'+dias.map((d,i)=>{
+      const isH=d.date===hoy,isM=d.date===addDays(hoy,1);
+      const {num,mes,wd}=dt(d.date);
+      const label=isH?'Hoy':isM?'Mañana':wd;
+      const rPrev=d.rs.slice(0,2).map(r=>'🔔 '+esc(r.title)+(r.amount?' $'+Number(r.amount).toLocaleString('es-MX'):'')).join(' · ');
+      const tPrev=d.ts.slice(0,2).map(t=>{const c=catById(t.category_id);return esc(c.icon)+' '+esc(c.name)}).join(' · ');
+      const preview=[rPrev,tPrev].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      const extras=d.rs.length+d.ts.length-4;
+      return '<div data-go="plan" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;'+(i<dias.length-1?'border-bottom:1px solid var(--line)':'')+'">'
+        +'<div style="width:46px;min-width:46px;text-align:center;background:'+(isH?'var(--strong)':'var(--soft)')+';border-radius:12px;padding:7px 0;color:'+(isH?'#fff':'var(--ink)')+';">'
+          +'<div style="font-size:10px;font-weight:800;opacity:.7">'+mes+'</div>'
+          +'<div style="font-size:22px;font-weight:900;line-height:1.1">'+num+'</div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:900;font-size:14px;'+(isH?'color:var(--strong)':'')+'">'+label+'</div>'
+          +'<div style="font-size:11.5px;color:var(--ink2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+preview+(extras>0?' +'+extras+' más':'')+'</div>'
+        +'</div>'
+        +'<span style="color:var(--ink3);font-size:16px">›</span>'
         +'</div>';
     }).join('')+'</div>';
   })()}
