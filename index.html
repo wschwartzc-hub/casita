@@ -1821,16 +1821,15 @@ async function authDoForgot(){
 async function afterLogin(){
   try{
     const c=await sb();
-    const{data:memData}=await c.from('casita_household_members')
-      .select('*, casita_households(*)')
-      .eq('user_id',supaUser.id).maybeSingle();
-    if(memData?.casita_households){
-      household=memData.casita_households;myMember=memData;
-      await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
-      toast('Bienvenido de vuelta 🏠');
-    }else{
-      hideAuth();showAuth('create');
-    }
+    /* Dos queries separadas — más confiable que join con nombres prefijados */
+    const{data:mem}=await c.from('casita_household_members')
+      .select('*').eq('user_id',supaUser.id).maybeSingle();
+    if(!mem){hideAuth();showAuth('create');return;}
+    const{data:hh}=await c.from('casita_households')
+      .select('*').eq('id',mem.household_id).single();
+    if(!hh){hideAuth();showAuth('create');return;}
+    household=hh;myMember=mem;
+    await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
   }catch(e){
     console.warn('afterLogin:',e);
     hideAuth();showAuth('create');
@@ -1843,19 +1842,23 @@ async function hhCreate(){
   const myName=($('#hhMyName')||{}).value?.trim();
   if(!name){showAuthErr('Ponle nombre a tu hogar');return;}
   if(!myName){showAuthErr('¿Cómo te llamas?');return;}
+  const btn=$('[data-act="hh:create"]');
+  if(btn){btn.disabled=true;btn.textContent='Creando...';}
   try{
     const code=Math.random().toString(36).slice(2,6).toUpperCase()+
                Math.random().toString(36).slice(2,6).toUpperCase();
     const c=await sb();
     const{data,error}=await c.rpc('casita_create_household',{
-      p_name:name, p_invite_code:code,
-      p_member_name:myName, p_member_icon:'👤', p_member_color:'#8FAE8B'
+      p_name:name,p_invite_code:code,
+      p_member_name:myName,p_member_icon:'👤',p_member_color:'#8FAE8B'
     });
     if(error)throw error;
-    /* Recargar sesión para obtener household */
     await afterLogin();
-    toast(`🏠 ¡Hogar creado! Código: ${data.invite_code}`);
-  }catch(e){showAuthErr(e.message||'No se pudo crear el hogar');}
+    toast('🏠 Hogar "'+name+'" creado! Código: '+code);
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Crear hogar';}
+    showAuthErr(e.message||'No se pudo crear el hogar');
+  }
 }
 
 /* ── Unirse al hogar ── */
