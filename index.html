@@ -1740,38 +1740,43 @@ async function payReminder(id){
    ACTION DISPATCH
 ═══════════════════════════════════════════════════════ */
 function doAct(token){
+  /* Casos de token completo (tienen dos segmentos fijos) */
+  switch(token){
+    case'auth:login':    authDoLogin();return;
+    case'auth:signup':   authDoSignup();return;
+    case'auth:forgot':   authDoForgot();return;
+    case'authview:login':  showAuth('login');return;
+    case'authview:signup': showAuth('signup');return;
+    case'authview:forgot': showAuth('forgot');return;
+    case'authview:create': showAuth('create');return;
+    case'authview:join':   showAuth('join');return;
+    case'authview:offline':authGoOffline();return;
+    case'hh:create': hhCreate();return;
+    case'hh:join':   hhJoin();return;
+    case'signout':   supaSignOut();return;
+    case'syncnow':   fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));return;
+  }
+  /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
   switch(a){
-    case'month': ui.month=shiftMonth(ui.month,parseInt(p[1],10));render();break;
-    case'filter': ui.txFilter=p[1];render();break;
-    case'calmonth': ui.calMonth=shiftMonth(ui.calMonth||ym(todayISO()),parseInt(p[1],10));render();break;
-    case'calday': openCalDaySheet(p[1]);break;
-    case'savemood': saveMood(p[1],parseInt(p[2],10));break;
-    case'addnote': openDayNoteForm(p[1]);break;
-    case'txtype': captureModal();DRAFT.type=p[1];DRAFT.category=null;openTx(DRAFT._id);break;
-    case'cattype': captureModal();DRAFT.type=p[1];openCategory(DRAFT._id);break;
-    case'save': saveForm(p[1]);break;
-    case'del': deleteEntity(p[1],p[2]);break;
-    case'openlist': ui.listId=p[1];ui.view='lista';render();break;
-    case'item': toggleItem(p[1]);break;
-    case'rdone': toggleReminder(p[1]);break;
-    case'pay': payReminder(p[1]);break;
-    case'theme': mySettings.accent=p[1];applyTheme();saveMySettings();render();break;
+    case'month':      ui.month=shiftMonth(ui.month,parseInt(p[1],10));render();break;
+    case'filter':     ui.txFilter=p[1];render();break;
+    case'calmonth':   ui.calMonth=shiftMonth(ui.calMonth||ym(todayISO()),parseInt(p[1],10));render();break;
+    case'calday':     openCalDaySheet(p[1]);break;
+    case'savemood':   saveMood(p[1],parseInt(p[2],10));break;
+    case'addnote':    openDayNoteForm(p[1]);break;
+    case'txtype':     captureModal();DRAFT.type=p[1];DRAFT.category=null;openTx(DRAFT._id);break;
+    case'cattype':    captureModal();DRAFT.type=p[1];openCategory(DRAFT._id);break;
+    case'save':       saveForm(p[1]);break;
+    case'del':        deleteEntity(p[1],p[2]);break;
+    case'openlist':   ui.listId=p[1];ui.view='lista';render();break;
+    case'item':       toggleItem(p[1]);break;
+    case'rdone':      toggleReminder(p[1]);break;
+    case'pay':        payReminder(p[1]);break;
+    case'theme':      mySettings.accent=p[1];applyTheme();saveMySettings();render();break;
     case'setclockcolor': mySettings.clockColor=p[1];applyTheme();saveMySettings();break;
-    case'setheadcolor': mySettings.headColor=p[1];applyTheme();saveMySettings();break;
-    case'visfilter': ui.visFilter=p[1];render();break;
-    case'syncnow': fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));break;
-    case'signout': supaSignOut();break;
-    case'auth:login': authDoLogin();break;
-    case'auth:signup': authDoSignup();break;
-    case'auth:forgot': authDoForgot();break;
-    case'authview:login': showAuth('login');break;
-    case'authview:signup': showAuth('signup');break;
-    case'authview:forgot': showAuth('forgot');break;
-    case'authview:create': showAuth('create');break;
-    case'authview:join': showAuth('join');break;
-    case'hh:create': hhCreate();break;
-    case'hh:join': hhJoin();break;
+    case'setheadcolor':  mySettings.headColor=p[1];applyTheme();saveMySettings();break;
+    case'visfilter':  ui.visFilter=p[1];render();break;
   }
 }
 
