@@ -19,7 +19,7 @@
   --good:#7FA77B; --bad:#D58E8E; --gold:#E7B84B;
   --r:18px; --sh:0 6px 18px rgba(120,105,80,.10); --sh2:0 10px 26px rgba(120,105,80,.13);
 }
-html,body{height:100%}
+html,body{height:100%;overflow:hidden}
 body{
   font-family:'Nunito',system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
@@ -31,7 +31,7 @@ body{
 .pix{font-family:'Outfit','Nunito',sans-serif;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
 .px{display:block;image-rendering:pixelated}
 #app{max-width:480px;margin:0 auto;height:100dvh;height:100vh;background:var(--bg);position:relative;
-  display:flex;flex-direction:column;box-shadow:0 0 60px rgba(120,105,80,.08);overflow:hidden}
+  display:flex;flex-direction:column;box-shadow:0 0 60px rgba(120,105,80,.08)}
 #screen{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px 120px;animation:fade .25s ease}
 @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -160,7 +160,7 @@ body{
 .fab:active{transform:scale(.92)}
 
 /* bottom nav */
-#nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+#nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
   background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;
   padding:9px 6px calc(9px + env(safe-area-inset-bottom,0px));z-index:30;box-shadow:0 -4px 22px rgba(120,105,80,.06)}
 .nav-b{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;
@@ -1599,7 +1599,7 @@ function openGoal(id){
       <div class="f"><label>Objetivo</label><input id="fld_target" inputmode="decimal" placeholder="0" value="${esc(DRAFT.target)}"></div>
       <div class="f"><label>Fecha límite</label><input id="fld_date" type="date" value="${esc(DRAFT.date)}"></div>
     </div>
-    <div class="f"><label>Ícono</label>${emojiPicker('icon',DRAFT.icon)}</div>
+    <div class="f"><label>Ícono <span style="font-size:11px;color:var(--ink2)">(escribe cualquier emoji)</span></label><input id="fld_icon" value="${esc(DRAFT.icon||'')}" maxlength="4" placeholder="🏠 🛒 ✈️ 💰" style="font-size:28px;text-align:center;width:100%;letter-spacing:4px" autocomplete="off"></div>
     <div class="f"><label>Color</label>${colorPicker('color',DRAFT.color)}</div>
     <div class="f"><label>Visibilidad</label><div class="seg2" data-pick="vis">
       <button type="button" class="opt ${DRAFT.vis==='hogar'?'active':''}" data-pick-val="hogar">🏠 Del hogar</button>
@@ -1630,7 +1630,7 @@ function openList(id){
       </div>
       <input id="fld_kind" placeholder="O escribe el tuyo: ej. Películas, Deudas…" value="${esc(DRAFT.kind)}">
     </div>
-    <div class="f"><label>Ícono</label>${emojiPicker('icon',DRAFT.icon)}</div>
+    <div class="f"><label>Ícono <span style="font-size:11px;color:var(--ink2)">(escribe cualquier emoji)</span></label><input id="fld_icon" value="${esc(DRAFT.icon||'')}" maxlength="4" placeholder="🏠 🛒 ✈️ 💰" style="font-size:28px;text-align:center;width:100%;letter-spacing:4px" autocomplete="off"></div>
     <div class="f"><label>Color</label>${colorPicker('color',DRAFT.color)}</div>
     <div class="f"><label>Visibilidad</label><div class="seg2" data-pick="vis">
       <button type="button" class="opt ${DRAFT.vis==='hogar'?'active':''}" data-pick-val="hogar">🏠 Compartida</button>
@@ -1640,20 +1640,23 @@ function openList(id){
     ${editing?`<button class="btn danger mt" data-act="del:list:${id}">Eliminar</button>`:''}`);
 }
 function openItem(listId,id){
-  const l=lists.find(x=>x.id===listId);if(!l)return;
-  const editing=!!id;const it=editing?items.find(x=>x.id===id):null;
-  const isSuper=l.kind==='super';
+  const l=lists.find(x=>x&&x.id===listId);if(!l)return;
+  const editing=!!id&&id!=='new';const it=editing?items.find(x=>x&&x.id===id):null;
+  const isSuper=l.kind==='super'||l.kind==='costco'||l.kind==='mercado';
   DRAFT={_kind:'item',_id:editing?id:null,_list:listId,text:it?.text||'',
-    qty:it?.qty||1,price:it?.price||'',due:it?.due||'',priority:it?.priority||'media'};
+    qty:it?.qty||1,price:it?.price||''};
   modal(`${sheetHead(editing?'Editar':'Agregar '+(isSuper?'producto':'tarea'),isSuper?'🛒':'✅')}
-    <div class="f"><label>${isSuper?'Producto':'Tarea'}</label><input id="fld_text" placeholder="${isSuper?'Ej. Leche, huevo…':'Ej. Pagar luz'}" value="${esc(DRAFT.text)}"></div>
-    ${isSuper?`<div class="f2"><div class="f"><label>Cantidad</label><input id="fld_qty" inputmode="numeric" value="${esc(DRAFT.qty)}"></div>
-       <div class="f"><label>Precio aprox.</label><input id="fld_price" inputmode="decimal" placeholder="0" value="${esc(DRAFT.price)}"></div></div>`
-      :`<div class="f"><label>Vence (opcional)</label><input id="fld_due" type="date" value="${esc(DRAFT.due)}"></div>
-        <div class="f"><label>Prioridad</label><div class="seg2" data-pick="priority">
-          ${['alta','media','baja'].map(p=>`<button type="button" class="opt ${DRAFT.priority===p?'active':''}" data-pick-val="${p}">${PRIOS[p].t}</button>`).join('')}</div></div>`}
+    <div class="f"><label>${isSuper?'Producto':'Tarea'}</label>
+      <input id="fld_text" placeholder="${isSuper?'Ej. Leche, huevo, pan…':'Ej. Pagar luz, llamar…'}" value="${esc(DRAFT.text)}" autocomplete="off"></div>
+    <div class="f2">
+      <div class="f"><label>Cantidad</label><input id="fld_qty" inputmode="numeric" value="${esc(DRAFT.qty)}"></div>
+      <div class="f"><label>Precio aprox. <span style="font-size:10px;color:var(--ink2)">(opcional)</span></label><input id="fld_price" inputmode="decimal" placeholder="0" value="${esc(DRAFT.price)}"></div>
+    </div>
     <button class="btn pix" data-act="save:item">${editing?'Guardar':'Agregar'}</button>
+    ${!editing?`<button class="btn ghost mt" data-act="saveandmore:item">Agregar otro →</button>`:''}
     ${editing?`<button class="btn danger mt" data-act="del:item:${id}">Eliminar</button>`:''}`);
+  /* Auto-focus en el texto */
+  setTimeout(()=>{const inp=$('#fld_text');if(inp)inp.focus();},120);
 }
 function openReminder(id){
   const editing=id&&id!=='new';const r=editing?reminders.find(x=>x.id===id):null;
@@ -1684,7 +1687,7 @@ function openCategory(id){
       <button type="button" class="opt ${isG?'active':''}" data-act="cattype:gasto">Gasto</button>
       <button type="button" class="opt ${!isG?'active':''}" data-act="cattype:ingreso">Ingreso</button></div></div>
     ${isG?`<div class="f"><label>Presupuesto mensual (opcional)</label><input id="fld_budget" inputmode="decimal" placeholder="0" value="${esc(DRAFT.budget)}"></div>`:''}
-    <div class="f"><label>Ícono</label>${emojiPicker('icon',DRAFT.icon)}</div>
+    <div class="f"><label>Ícono <span style="font-size:11px;color:var(--ink2)">(escribe cualquier emoji)</span></label><input id="fld_icon" value="${esc(DRAFT.icon||'')}" maxlength="4" placeholder="🏠 🛒 ✈️ 💰" style="font-size:28px;text-align:center;width:100%;letter-spacing:4px" autocomplete="off"></div>
     <div class="f"><label>Color</label>${colorPicker('color',DRAFT.color)}</div>
     <button class="btn pix" data-act="save:category">${editing?'Guardar':'Crear'}</button>
     ${editing?`<button class="btn danger mt" data-act="del:category:${id}">Eliminar</button>`:''}`);
@@ -1695,7 +1698,7 @@ function openAccount(id){
   modal(`${sheetHead(editing?'Editar cuenta':'Nueva cuenta','🏦')}
     <div class="f"><label>Nombre</label><input id="fld_name" placeholder="Ej. Efectivo, BBVA" value="${esc(DRAFT.name)}"></div>
     <div class="f"><label>Saldo inicial</label><input id="fld_opening" inputmode="decimal" placeholder="0" value="${esc(DRAFT.opening)}"></div>
-    <div class="f"><label>Ícono</label>${emojiPicker('icon',DRAFT.icon)}</div>
+    <div class="f"><label>Ícono <span style="font-size:11px;color:var(--ink2)">(escribe cualquier emoji)</span></label><input id="fld_icon" value="${esc(DRAFT.icon||'')}" maxlength="4" placeholder="🏠 🛒 ✈️ 💰" style="font-size:28px;text-align:center;width:100%;letter-spacing:4px" autocomplete="off"></div>
     <div class="f"><label>Color</label>${colorPicker('color',DRAFT.color)}</div>
     <button class="btn pix" data-act="save:account">${editing?'Guardar':'Crear cuenta'}</button>
     ${editing&&accounts.length>1?`<button class="btn danger mt" data-act="del:account:${id}">Eliminar</button>`:''}`);
@@ -1704,7 +1707,7 @@ function openAccount(id){
 /* ═══════════════════════════════════════════════════════
    SAVE / DELETE  (llaman a dbInsert/dbUpdate/dbDelete)
 ═══════════════════════════════════════════════════════ */
-async function saveForm(kind){
+async function saveForm(kind,andMore=false){
   captureModal();
   try{
     if(kind==='tx'){
@@ -1723,7 +1726,7 @@ async function saveForm(kind){
       else{const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
     }else if(kind==='goal'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
-      const o={name,target:parseAmt(fval('target')),target_date:fval('date')||null,icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
+      const o={name,target:parseAmt(fval('target')),target_date:fval('date')||null,icon:fval('icon')||DRAFT.icon||'🎯',color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
       if(DRAFT._id){await dbUpdate('casita_goals',DRAFT._id,o);goals=goals.map(g=>g.id===DRAFT._id?{...g,...o}:g);}
       else{const row=await dbInsert('casita_goals',o);goals.push(row);}
     }else if(kind==='contribution'){
@@ -1732,15 +1735,32 @@ async function saveForm(kind){
       const c=await sb();const{data:row}=await c.from('casita_contributions').insert(o).select().single();contributions.push(row);
     }else if(kind==='list'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
-      const o={name,kind:(fval('kind')||DRAFT.kind||'tareas').trim(),icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
+      const o={name,kind:(fval('kind')||DRAFT.kind||'tareas').trim(),icon:fval('icon')||DRAFT.icon||'✅',color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
       if(DRAFT._id){await dbUpdate('casita_lists',DRAFT._id,o);lists=lists.map(l=>l.id===DRAFT._id?{...l,...o}:l);}
       else{const row=await dbInsert('casita_lists',o);lists.push(row);}
     }else if(kind==='item'){
       const text=fval('text').trim();if(!text)return shake('#fld_text');
-      const prev=items.find(x=>x.id===DRAFT._id)||{};
-      const o={list_id:DRAFT._list,text,done:prev.done||false,qty:parseAmt(fval('qty'))||1,price:parseAmt(fval('price')),due:fval('due')||null,priority:DRAFT.priority||'media',household_id:household.id,user_id:supaUser.id};
-      if(DRAFT._id){const c=await sb();await c.from('casita_items').update(o).eq('id',DRAFT._id);items=items.map(i=>i.id===DRAFT._id?{...i,...o}:i);}
-      else{const c=await sb();const{data:row}=await c.from('casita_items').insert(o).select().single();items.push(row);}
+      const o={list_id:DRAFT._list,text,done:false,
+        qty:parseAmt(fval('qty'))||1,price:parseAmt(fval('price'))||0,
+        user_id:supaUser.id};
+      if(DRAFT._id){
+        const c=await sb();await c.from('casita_items').update(o).eq('id',DRAFT._id);
+        items=items.map(i=>i&&i.id===DRAFT._id?{...i,...o}:i);
+      }else{
+        const c=await sb();const{data:row,error}=await c.from('casita_items').insert(o).select().single();
+        if(error)throw error;
+        if(row)items.push(row);
+      }
+      const listId=DRAFT._list;
+      if(andMore){
+        /* Agregar otro — limpiar y reenfocar */
+        DRAFT={_kind:'item',_id:null,_list:listId,text:'',qty:1,price:''};
+        const tf=$('#fld_text'),qf=$('#fld_qty'),pf=$('#fld_price');
+        if(tf){tf.value='';tf.focus();}
+        if(qf)qf.value='1';if(pf)pf.value='';
+        render();/* actualizar total en background */
+        return;
+      }
     }else if(kind==='reminder'){
       const title=fval('title').trim();if(!title)return shake('#fld_title');
       const prev=reminders.find(x=>x.id===DRAFT._id)||{};
@@ -1749,12 +1769,12 @@ async function saveForm(kind){
       else{const row=await dbInsert('casita_reminders',o);reminders.push(row);}
     }else if(kind==='category'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
-      const o={name,type:DRAFT.type,icon:DRAFT.icon,color:DRAFT.color,budget:DRAFT.type==='gasto'?parseAmt(fval('budget')):0};
+      const o={name,type:DRAFT.type,icon:fval('icon')||DRAFT.icon||'📦',color:DRAFT.color,budget:DRAFT.type==='gasto'?parseAmt(fval('budget')):0};
       if(DRAFT._id){await dbUpdate('casita_categories',DRAFT._id,o);categories=categories.map(c=>c.id===DRAFT._id?{...c,...o}:c);}
       else{const row=await dbInsert('casita_categories',o);categories.push(row);}
     }else if(kind==='account'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
-      const o={name,icon:DRAFT.icon,color:DRAFT.color,opening_balance:parseAmt(fval('opening'))};
+      const o={name,icon:fval('icon')||DRAFT.icon||'🏦',color:DRAFT.color,opening_balance:parseAmt(fval('opening'))};
       if(DRAFT._id){await dbUpdate('casita_accounts',DRAFT._id,o);accounts=accounts.map(a=>a.id===DRAFT._id?{...a,...o}:a);}
       else{const row=await dbInsert('casita_accounts',o);accounts.push(row);}
     }else if(kind==='daynote'){
@@ -1832,6 +1852,7 @@ function doAct(token){
     case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
     case'gotodaydinero':  ui.month=ym(todayISO());render();return;
+    case'confirmpay':     closeModal();payReminder(p[1]);return;
   }
   /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
@@ -1845,11 +1866,12 @@ function doAct(token){
     case'txtype':     captureModal();DRAFT.type=p[1];DRAFT.category=null;openTx(DRAFT._id);break;
     case'cattype':    captureModal();DRAFT.type=p[1];openCategory(DRAFT._id);break;
     case'save':       saveForm(p[1]);break;
+    case'saveandmore':saveForm(p[1],true);break;
     case'del':        deleteEntity(p[1],p[2]);break;
     case'openlist':   ui.listId=p[1];ui.view='lista';render();break;
     case'item':       toggleItem(p[1]);break;
     case'rdone':      toggleReminder(p[1]);break;
-    case'pay':        payReminder(p[1]);break;
+    case'pay':        confirmPay(p[1]);break;
     case'theme':      mySettings.accent=p[1];applyTheme();saveMySettings();render();break;
     case'setclockcolor': mySettings.clockColor=p[1];applyTheme();saveMySettings();break;
     case'setheadcolor':  mySettings.headColor=p[1];applyTheme();saveMySettings();break;
@@ -2142,6 +2164,18 @@ Pasos para unirte:
 
   const url='https://wa.me/?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
+}
+
+function confirmPay(id){
+  const r=reminders.find(x=>x&&x.id===id);if(!r)return;
+  modal(`${sheetHead('Confirmar pago','💳')}
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="font-size:20px;font-weight:900">${esc(r.title)}</div>
+      ${r.amount?`<div style="font-size:24px;font-weight:900;color:var(--strong);margin-top:4px">${money0(r.amount)}</div>`:''}
+      ${r.recurrence&&r.recurrence!=='none'?`<div style="font-size:12px;color:var(--ink2);margin-top:6px">El recordatorio se reagendará automáticamente al siguiente ciclo</div>`:''}
+    </div>
+    <button class="btn pix" data-act="confirmpay:${id}">✓ Sí, ya pagué</button>
+    <button class="btn ghost mt" data-close="1">Cancelar</button>`);
 }
 
 /* ═══════════════════════════════════════════════════════
