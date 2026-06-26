@@ -982,7 +982,14 @@ function viewInicio(){
       <div class="hello-clockbox">
         <div class="hello-time"><span id="liveClock">${timeStr}</span><span style="font-size:28px;letter-spacing:0;opacity:.75;margin-left:5px">${ampm}</span></div>
         <div class="hello-datestr">${capitalize(dayStr)}</div>
-        ${wCur?`<div class="hello-wx-row"><span style="font-size:22px;line-height:1">${wmoInfo(wCur.weathercode).e}</span><span style="font-size:17px;font-weight:900;color:var(--strong)">${Math.round(wCur.temperature)}°</span><span style="font-size:11px;color:var(--ink2)">${wmoInfo(wCur.weathercode).d}</span></div>`:`<div class="hello-wx-row" style="opacity:.5"><span>🌡️</span><span style="font-size:11px;color:var(--ink2)">Cargando clima…</span></div>`}
+        ${wCur?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.55);border-radius:11px;padding:5px 9px">
+            <span style="font-size:19px;line-height:1">${wmoInfo(wCur.weathercode).e}</span>
+            <span style="font-size:16px;font-weight:900;color:var(--strong)">${Math.round(wCur.temperature)}°</span>
+            <span style="font-size:10px;color:var(--ink2);font-weight:700">${wmoInfo(wCur.weathercode).d}</span>
+          </div>
+          ${(()=>{if(!weatherData?.daily)return'';const today=todayISO();const idx=weatherData.daily.time.indexOf(today);const s=idx>=0?idx+1:1;return weatherData.daily.time.slice(s,s+3).map((d,i)=>{const dn=new Date(d+'T00:00').toLocaleDateString('es-MX',{weekday:'short'}).replace('.','').slice(0,3);const wmo=wmoInfo(weatherData.daily.weathercode[s+i]);const mx=Math.round(weatherData.daily.temperature_2m_max[s+i]);return '<div style="text-align:center;font-size:10px;color:var(--ink2)"><div style="font-weight:700">'+capitalize(dn)+'</div><div style="font-size:14px;line-height:1.2">'+wmo.e+'</div><div style="font-weight:900;color:var(--ink);font-size:11px">'+mx+'°</div></div>';}).join('');})()}
+        </div>`:`<div style="opacity:.5;font-size:11px;color:var(--ink2);margin-top:6px">🌡️ Cargando clima…</div>`}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <span class="hpill ${isOnline?'online':'offline'}">${isOnline?'● En línea':'○ Sin conexión'}</span>
@@ -990,11 +997,6 @@ function viewInicio(){
       </div>
     </div>
     <div class="hello-greeting">${greet}${name?', <b>'+name+'</b>':' '}${gEmoji}</div>
-    <div class="hello-footer">
-      ${wxStr?`<span class="hpill wx">${wxStr}</span>`:''}
-      <span class="hpill wx" style="background:var(--soft);color:var(--strong);border-color:var(--line)">${capitalize(monthLabel(m))}</span>
-      ${net>=0?`<span class="hpill online">↑ ${money0(net)} ahorro</span>`:`<span class="hpill offline">↓ ${money0(Math.abs(net))} sobre</span>`}
-    </div>
   </div>
 
   ${memberBar}
@@ -1006,7 +1008,12 @@ function viewInicio(){
       <div class="stat"><div class="lbl" style="color:#30A868">▲ Ingresos</div><div class="v good">${money0(inc)}</div></div>
       <div class="stat"><div class="lbl" style="color:#E08585">▼ Gastos</div><div class="v bad">${money0(exp)}</div></div>
     </div>
-    <div class="hint ${net>=0?'good':'bad'}" style="text-align:center;margin-top:8px">
+    <div class="stat" style="margin-top:8px;background:linear-gradient(135deg,#FFFBEA,#FFF0BA);border:1.5px solid #F0D060;border-radius:16px;padding:12px 14px">
+      <div class="lbl" style="color:#9A7800">✨ Ahorro del mes</div>
+      <div class="v" style="${net>=0?'color:#8A6800;':'color:#C9695F;'}font-size:24px">${money0(Math.abs(net))}</div>
+      ${net<0?`<div style="font-size:11px;color:#C9695F;font-weight:700;margin-top:2px">↓ van ${money0(Math.abs(net))} sobre el ingreso</div>`:''}
+    </div>
+    <div class="hint ${net>=0?'good':'bad'}" style="text-align:center;margin-top:8px;display:none">
       ${net>=0?`Llevan ${money0(net)} de ahorro este mes ✨`:`Van ${money0(Math.abs(net))} sobre el ingreso`}
     </div>
   </div>
