@@ -1850,11 +1850,30 @@ async function authDoSignup(){
   const email=($('#authEmail')||{}).value?.trim();
   const pass=($('#authPass')||{}).value;
   if(!email||!pass||pass.length<6){showAuthErr('Correo válido y contraseña de 6+ caracteres');return;}
+  const btn=$('[data-act="auth:signup"]');
+  if(btn){btn.disabled=true;btn.textContent='Creando...';}
   try{
-    const c=await sb();const{data,error}=await c.auth.signUp({email,password:pass});
-    if(error)throw error;supaUser=data.user;
+    const c=await sb();
+    /* 1. Crear cuenta */
+    const{data,error}=await c.auth.signUp({email,password:pass});
+    if(error)throw error;
+
+    /* 2. Iniciar sesión inmediatamente para obtener JWT válido */
+    const{data:sd,error:se}=await c.auth.signInWithPassword({email,password:pass});
+    if(se){
+      /* Signup ok pero confirmación de email requerida */
+      if(btn){btn.disabled=false;btn.textContent='Crear cuenta';}
+      showAuthErr('Cuenta creada. Confirma tu correo y luego inicia sesión.');
+      setTimeout(()=>showAuth('login'),2500);
+      return;
+    }
+    supaUser=sd.user;
+    if(btn){btn.disabled=false;btn.textContent='Crear cuenta';}
     hideAuth();showAuth('create');
-  }catch(e){showAuthErr(e.message||'No se pudo crear la cuenta');}
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Crear cuenta';}
+    showAuthErr(e.message||'No se pudo crear la cuenta');
+  }
 }
 async function authDoForgot(){
   const email=($('#authEmail')||{}).value?.trim();
