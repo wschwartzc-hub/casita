@@ -1038,8 +1038,13 @@ function viewDinero(){
   ${topbar('Dinero',monthLabel(m),null,'#4A8ABF')}
   <div class="month">
     <button class="iconbtn" data-act="month:-1">‹</button>
-    <div class="mid"><div class="b">${capitalize(monthLabel(m))}</div></div>
-    <button class="iconbtn" data-act="month:1">›</button>
+    <button data-act="openmonthpick:dinero" style="background:none;border:none;cursor:pointer;padding:4px 12px;border-radius:12px">
+      <div class="b">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
+    </button>
+    <div style="display:flex;align-items:center;gap:6px">
+      ${m!==ym(todayISO())?`<button class="chip" style="font-size:11px;padding:3px 10px;height:auto" data-act="gotodaydinero">Hoy</button>`:''}
+      <button class="iconbtn" data-act="month:1">›</button>
+    </div>
   </div>
   <div class="row2">
     <div class="stat good"><div class="lbl">Ingresos</div><div class="v">${money0(monthIncome(m))}</div></div>
@@ -1773,9 +1778,11 @@ function doAct(token){
     case'syncnow':        fetchAll().then(()=>toast('Sincronizado ✓')).catch(()=>toast('Error al sincronizar'));return;
     case'savehh':         saveHouseholdName();return;
     case'savemembername': saveMemberName();return;
-    case'openmonthpick':  openMonthPicker();return;
-    case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value;if(mon&&yr){ui.calMonth=yr+'-'+mon;closeModal();render();}return;}
+    case'openmonthpick':  openMonthPicker('cal');return;
+    case'openmonthpick:dinero': openMonthPicker('dinero');return;
+    case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
+    case'gotodaydinero':  ui.month=ym(todayISO());render();return;
   }
   /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
@@ -1970,20 +1977,22 @@ async function saveMemberName(){
   }catch(e){toast('Error: '+(e.message||'No se pudo guardar'));console.error(e);}
 }
 
-function openMonthPicker(){
-  const [curY,curM]=ui.calMonth.split('-').map(Number);
+function openMonthPicker(target='cal'){
+  const src=target==='dinero'?ui.month:ui.calMonth;
+  const [curY,curM]=src.split('-').map(Number);
   const todayY=parseInt(todayISO().slice(0,4));
   const yearOpts=Array.from({length:8},(_,i)=>todayY-4+i)
     .map(y=>`<option value="${y}" ${y===curY?'selected':''}>${y}</option>`).join('');
   const mons=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const monOpts=mons.map((mn,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${(i+1)===curM?'selected':''}>${mn}</option>`).join('');
   modal(`${sheetHead('Ir a mes y año','📅')}
+    <input type="hidden" id="pickTarget" value="${target}">
     <div class="f2" style="gap:12px">
       <div class="f"><label>Mes</label><select id="pickMon">${monOpts}</select></div>
       <div class="f"><label>Año</label><select id="pickYear">${yearOpts}</select></div>
     </div>
     <button class="btn pix" data-act="applymonthpick" style="width:100%;margin-top:4px">Ir →</button>
-    <button class="btn ghost mt" data-act="gotoday" style="width:100%">📍 Ir a hoy</button>`);
+    <button class="btn ghost mt" data-act="${target==='dinero'?'gotodaydinero':'gotoday'}" style="width:100%">📍 Ir a hoy</button>`);
 }
 
 /* ═══════════════════════════════════════════════════════
