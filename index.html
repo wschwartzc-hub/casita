@@ -615,10 +615,7 @@ async function sb(){
   if(_supa)return _supa;
   if(!SUPA_URL||!SUPA_KEY)throw new Error('No credentials');
   if(!window.supabase)throw new Error('Supabase library not loaded');
-  _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY,{
-    db:{schema:'casita'},
-    auth:{persistSession:true,autoRefreshToken:true}
-  });
+  _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
   return _supa;
 }
 
@@ -640,15 +637,15 @@ async function fetchAll(){
   try{
     const c=await sb();const hid=household.id;
     const [txR,catR,accR,goalR,lstR,remR,moodR,noteR,memR]=await Promise.all([
-      c.from('transactions').select('*').eq('household_id',hid).order('date',{ascending:false}),
-      c.from('categories').select('*').eq('household_id',hid).order('name'),
-      c.from('accounts').select('*').eq('household_id',hid),
-      c.from('goals').select('*').eq('household_id',hid),
-      c.from('lists').select('*').eq('household_id',hid),
-      c.from('reminders').select('*').eq('household_id',hid),
-      c.from('moods').select('*').eq('household_id',hid).eq('user_id',supaUser.id),
-      c.from('day_notes').select('*').eq('household_id',hid).eq('user_id',supaUser.id),
-      c.from('household_members').select('*').eq('household_id',hid),
+      c.from('casita_transactions').select('*').eq('household_id',hid).order('date',{ascending:false}),
+      c.from('casita_categories').select('*').eq('household_id',hid).order('name'),
+      c.from('casita_accounts').select('*').eq('household_id',hid),
+      c.from('casita_goals').select('*').eq('household_id',hid),
+      c.from('casita_lists').select('*').eq('household_id',hid),
+      c.from('casita_reminders').select('*').eq('household_id',hid),
+      c.from('casita_moods').select('*').eq('household_id',hid).eq('user_id',supaUser.id),
+      c.from('casita_day_notes').select('*').eq('household_id',hid).eq('user_id',supaUser.id),
+      c.from('casita_household_members').select('*').eq('household_id',hid),
     ]);
     transactions=txR.data||[];categories=catR.data||[];accounts=accR.data||[];
     goals=goalR.data||[];lists=lstR.data||[];reminders=remR.data||[];
@@ -656,9 +653,9 @@ async function fetchAll(){
     myMember=members.find(m=>m.user_id===supaUser.id);
     if(myMember?.settings)mySettings={...mySettings,...myMember.settings};
     const goalIds=goals.map(g=>g.id),listIds=lists.map(l=>l.id);
-    if(goalIds.length){const{data:cd}=await c.from('contributions').select('*').in('goal_id',goalIds);contributions=cd||[];}else contributions=[];
-    if(listIds.length){const{data:id}=await c.from('items').select('*').in('list_id',listIds);items=id||[];}else items=[];
-    const{data:totals}=await c.rpc('get_personal_totals',{p_household_id:hid,p_month:ui.month});
+    if(goalIds.length){const{data:cd}=await c.from('casita_contributions').select('*').in('goal_id',goalIds);contributions=cd||[];}else contributions=[];
+    if(listIds.length){const{data:id}=await c.from('casita_items').select('*').in('list_id',listIds);items=id||[];}else items=[];
+    const{data:totals}=await c.rpc('casita_get_personal_totals',{p_household_id:hid,p_month:ui.month});
     memberPersonalTotals=totals||[];
     applyTheme();render();
   }catch(e){console.warn('fetchAll:',e);}finally{_fetching=false;}
@@ -670,11 +667,11 @@ async function subscribeRealtime(){
   if(!household)return;const c=await sb();
   if(_rtChannel)await c.removeChannel(_rtChannel);
   _rtChannel=c.channel(`hh-${household.id}`)
-    .on('postgres_changes',{event:'*',schema:'public',table:'transactions',filter:`household_id=eq.${household.id}`},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'goals',filter:`household_id=eq.${household.id}`},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'reminders',filter:`household_id=eq.${household.id}`},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'items'},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'moods',filter:`household_id=eq.${household.id}`},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_transactions',filter:`household_id=eq.${household.id}`},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_goals',filter:`household_id=eq.${household.id}`},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_reminders',filter:`household_id=eq.${household.id}`},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_items'},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_moods',filter:`household_id=eq.${household.id}`},()=>fetchAll())
     .subscribe();
 }
 
@@ -687,7 +684,7 @@ async function dbUpsert(table,data){const c=await sb();const payload={...data,ho
 /* ── Sync de settings del miembro ─ */
 async function saveMySettings(){
   if(!myMember)return;
-  await dbUpdate('household_members',myMember.id,{settings:mySettings});
+  await dbUpdate('casita_household_members',myMember.id,{settings:mySettings});
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1464,7 +1461,7 @@ function openCalDaySheet(iso){
 
 async function saveMood(date,value){
   if(!household)return;
-  try{await dbUpsert('moods',{date,value,household_id:household.id,user_id:supaUser.id});
+  try{await dbUpsert('casita_moods',{date,value,household_id:household.id,user_id:supaUser.id});
     const existing=moods.findIndex(m=>m.date===date&&m.user_id===supaUser.id);
     const entry={date,value,household_id:household.id,user_id:supaUser.id};
     if(existing>=0)moods[existing]=entry;else moods.push(entry);
@@ -1650,47 +1647,47 @@ async function saveForm(kind){
       const cat=DRAFT.category||(categories.find(c=>c.type===DRAFT.type)?.id)||null;
       const acc=DRAFT.account||(accounts[0]?.id)||null;
       const o={type:DRAFT.type,amount,category_id:cat,account_id:acc,note:fval('note').trim(),date:fval('date')||todayISO(),visibility:DRAFT.vis||'hogar'};
-      if(DRAFT._id){await dbUpdate('transactions',DRAFT._id,o);transactions=transactions.map(t=>t.id===DRAFT._id?{...t,...o}:t);}
-      else{const row=await dbInsert('transactions',o);transactions.unshift(row);}
+      if(DRAFT._id){await dbUpdate('casita_transactions',DRAFT._id,o);transactions=transactions.map(t=>t.id===DRAFT._id?{...t,...o}:t);}
+      else{const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
     }else if(kind==='goal'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
       const o={name,target:parseAmt(fval('target')),target_date:fval('date')||null,icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
-      if(DRAFT._id){await dbUpdate('goals',DRAFT._id,o);goals=goals.map(g=>g.id===DRAFT._id?{...g,...o}:g);}
-      else{const row=await dbInsert('goals',o);goals.push(row);}
+      if(DRAFT._id){await dbUpdate('casita_goals',DRAFT._id,o);goals=goals.map(g=>g.id===DRAFT._id?{...g,...o}:g);}
+      else{const row=await dbInsert('casita_goals',o);goals.push(row);}
     }else if(kind==='contribution'){
       const amount=parseAmt(fval('amount'));if(amount<=0)return shake('#fld_amount');
       const o={goal_id:DRAFT.goal,amount,date:fval('date')||todayISO(),household_id:household.id,user_id:supaUser.id};
-      const c=await sb();const{data:row}=await c.from('contributions').insert(o).select().single();contributions.push(row);
+      const c=await sb();const{data:row}=await c.from('casita_contributions').insert(o).select().single();contributions.push(row);
     }else if(kind==='list'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
       const o={name,kind:DRAFT.kind,icon:DRAFT.icon,color:DRAFT.color,visibility:DRAFT.vis||'hogar'};
-      if(DRAFT._id){await dbUpdate('lists',DRAFT._id,o);lists=lists.map(l=>l.id===DRAFT._id?{...l,...o}:l);}
-      else{const row=await dbInsert('lists',o);lists.push(row);}
+      if(DRAFT._id){await dbUpdate('casita_lists',DRAFT._id,o);lists=lists.map(l=>l.id===DRAFT._id?{...l,...o}:l);}
+      else{const row=await dbInsert('casita_lists',o);lists.push(row);}
     }else if(kind==='item'){
       const text=fval('text').trim();if(!text)return shake('#fld_text');
       const prev=items.find(x=>x.id===DRAFT._id)||{};
       const o={list_id:DRAFT._list,text,done:prev.done||false,qty:parseAmt(fval('qty'))||1,price:parseAmt(fval('price')),due:fval('due')||null,priority:DRAFT.priority||'media',household_id:household.id,user_id:supaUser.id};
-      if(DRAFT._id){const c=await sb();await c.from('items').update(o).eq('id',DRAFT._id);items=items.map(i=>i.id===DRAFT._id?{...i,...o}:i);}
-      else{const c=await sb();const{data:row}=await c.from('items').insert(o).select().single();items.push(row);}
+      if(DRAFT._id){const c=await sb();await c.from('casita_items').update(o).eq('id',DRAFT._id);items=items.map(i=>i.id===DRAFT._id?{...i,...o}:i);}
+      else{const c=await sb();const{data:row}=await c.from('casita_items').insert(o).select().single();items.push(row);}
     }else if(kind==='reminder'){
       const title=fval('title').trim();if(!title)return shake('#fld_title');
       const prev=reminders.find(x=>x.id===DRAFT._id)||{};
       const o={title,amount:parseAmt(fval('amount')),date:fval('date')||todayISO(),recurrence:DRAFT.recurrence||'none',category_id:DRAFT.category||null,done:prev.done||false,visibility:DRAFT.vis||'hogar'};
-      if(DRAFT._id){await dbUpdate('reminders',DRAFT._id,o);reminders=reminders.map(r=>r.id===DRAFT._id?{...r,...o}:r);}
-      else{const row=await dbInsert('reminders',o);reminders.push(row);}
+      if(DRAFT._id){await dbUpdate('casita_reminders',DRAFT._id,o);reminders=reminders.map(r=>r.id===DRAFT._id?{...r,...o}:r);}
+      else{const row=await dbInsert('casita_reminders',o);reminders.push(row);}
     }else if(kind==='category'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
       const o={name,type:DRAFT.type,icon:DRAFT.icon,color:DRAFT.color,budget:DRAFT.type==='gasto'?parseAmt(fval('budget')):0};
-      if(DRAFT._id){await dbUpdate('categories',DRAFT._id,o);categories=categories.map(c=>c.id===DRAFT._id?{...c,...o}:c);}
-      else{const row=await dbInsert('categories',o);categories.push(row);}
+      if(DRAFT._id){await dbUpdate('casita_categories',DRAFT._id,o);categories=categories.map(c=>c.id===DRAFT._id?{...c,...o}:c);}
+      else{const row=await dbInsert('casita_categories',o);categories.push(row);}
     }else if(kind==='account'){
       const name=fval('name').trim();if(!name)return shake('#fld_name');
       const o={name,icon:DRAFT.icon,color:DRAFT.color,opening_balance:parseAmt(fval('opening'))};
-      if(DRAFT._id){await dbUpdate('accounts',DRAFT._id,o);accounts=accounts.map(a=>a.id===DRAFT._id?{...a,...o}:a);}
-      else{const row=await dbInsert('accounts',o);accounts.push(row);}
+      if(DRAFT._id){await dbUpdate('casita_accounts',DRAFT._id,o);accounts=accounts.map(a=>a.id===DRAFT._id?{...a,...o}:a);}
+      else{const row=await dbInsert('casita_accounts',o);accounts.push(row);}
     }else if(kind==='daynote'){
       const text=fval('text').trim();if(!text)return;
-      await dbUpsert('day_notes',{date:DRAFT.date,text,household_id:household.id,user_id:supaUser.id});
+      await dbUpsert('casita_day_notes',{date:DRAFT.date,text,household_id:household.id,user_id:supaUser.id});
       const existing=dayNotes.findIndex(n=>n.date===DRAFT.date&&n.user_id===supaUser.id);
       const entry={date:DRAFT.date,text,household_id:household.id,user_id:supaUser.id};
       if(existing>=0)dayNotes[existing]=entry;else dayNotes.push(entry);
@@ -1702,14 +1699,14 @@ async function saveForm(kind){
 
 async function deleteEntity(kind,id){
   try{
-    if(kind==='tx'){await dbDelete('transactions',id);transactions=transactions.filter(t=>t.id!==id);}
-    else if(kind==='goal'){contributions=contributions.filter(c=>c.goal_id!==id);await dbDelete('goals',id);goals=goals.filter(g=>g.id!==id);}
-    else if(kind==='list'){items=items.filter(i=>i.list_id!==id);await dbDelete('lists',id);lists=lists.filter(l=>l.id!==id);}
-    else if(kind==='item'){const c=await sb();await c.from('items').delete().eq('id',id);items=items.filter(i=>i.id!==id);}
-    else if(kind==='reminder'){await dbDelete('reminders',id);reminders=reminders.filter(r=>r.id!==id);}
-    else if(kind==='category'){await dbDelete('categories',id);categories=categories.filter(c=>c.id!==id);}
-    else if(kind==='account'){await dbDelete('accounts',id);accounts=accounts.filter(a=>a.id!==id);}
-    else if(kind==='contribution'){const c=await sb();await c.from('contributions').delete().eq('id',id);contributions=contributions.filter(c=>c.id!==id);}
+    if(kind==='tx'){await dbDelete('casita_transactions',id);transactions=transactions.filter(t=>t.id!==id);}
+    else if(kind==='goal'){contributions=contributions.filter(c=>c.goal_id!==id);await dbDelete('casita_goals',id);goals=goals.filter(g=>g.id!==id);}
+    else if(kind==='list'){items=items.filter(i=>i.list_id!==id);await dbDelete('casita_lists',id);lists=lists.filter(l=>l.id!==id);}
+    else if(kind==='item'){const c=await sb();await c.from('casita_items').delete().eq('id',id);items=items.filter(i=>i.id!==id);}
+    else if(kind==='reminder'){await dbDelete('casita_reminders',id);reminders=reminders.filter(r=>r.id!==id);}
+    else if(kind==='category'){await dbDelete('casita_categories',id);categories=categories.filter(c=>c.id!==id);}
+    else if(kind==='account'){await dbDelete('casita_accounts',id);accounts=accounts.filter(a=>a.id!==id);}
+    else if(kind==='contribution'){const c=await sb();await c.from('casita_contributions').delete().eq('id',id);contributions=contributions.filter(c=>c.id!==id);}
     closeModal();render();
   }catch(e){toast('Error al eliminar');console.error(e);}
 }
@@ -1717,22 +1714,22 @@ async function deleteEntity(kind,id){
 async function toggleItem(id){
   const i=items.find(x=>x.id===id);if(!i)return;
   i.done=!i.done;
-  const c=await sb();await c.from('items').update({done:i.done}).eq('id',id);
+  const c=await sb();await c.from('casita_items').update({done:i.done}).eq('id',id);
   if(i.done){const btn=document.querySelector(`[data-act="item:${id}"]`);if(btn){const r=btn.getBoundingClientRect();confetti(r.left+r.width/2,r.top+r.height/2,12);}else confetti(window.innerWidth/2,window.innerHeight/2,12);}
   render();
 }
 async function toggleReminder(id){
-  const r=reminders.find(x=>x.id===id);if(!r)return;r.done=!r.done;await dbUpdate('reminders',id,{done:r.done});render();
+  const r=reminders.find(x=>x.id===id);if(!r)return;r.done=!r.done;await dbUpdate('casita_reminders',id,{done:r.done});render();
 }
 async function payReminder(id){
   const r=reminders.find(x=>x.id===id);if(!r)return;
   if(r.amount>0){const cat=r.category_id?catById(r.category_id):categories.find(c=>c.type==='gasto');
     const o={type:'gasto',amount:Number(r.amount),category_id:cat?.id||null,account_id:accounts[0]?.id||null,note:r.title,date:todayISO(),visibility:r.visibility||'hogar'};
-    const row=await dbInsert('transactions',o);transactions.unshift(row);}
+    const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
   if(r.recurrence&&r.recurrence!=='none'){const map={semanal:7,quincenal:15};
     const newDate=r.recurrence==='mensual'?addMonths(r.date||todayISO(),1):r.recurrence==='anual'?addMonths(r.date||todayISO(),12):addDays(r.date||todayISO(),map[r.recurrence]||30);
-    r.date=newDate;r.done=false;await dbUpdate('reminders',id,{date:newDate,done:false});toast('✓ Pagado y reagendado');
-  }else{r.done=true;await dbUpdate('reminders',id,{done:true});toast('✓ Pagado');}
+    r.date=newDate;r.done=false;await dbUpdate('casita_reminders',id,{date:newDate,done:false});toast('✓ Pagado y reagendado');
+  }else{r.done=true;await dbUpdate('casita_reminders',id,{done:true});toast('✓ Pagado');}
   render();
 }
 
@@ -1823,7 +1820,7 @@ async function authDoForgot(){
 
 async function afterLogin(){
   const c=await sb();
-  const{data:memData}=await c.from('household_members').select('*,households(*)').eq('user_id',supaUser.id).maybeSingle();
+  const{data:memData}=await c.from('casita_household_members').select('*,households(*)').eq('user_id',supaUser.id).maybeSingle();
   if(memData?.households){
     household=memData.households;myMember=memData;
     await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
@@ -1842,14 +1839,14 @@ async function hhCreate(){
   try{
     const code=Math.random().toString(36).slice(2,6).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
     const c=await sb();
-    const{data:hh,error:he}=await c.from('households').insert({name,invite_code:code,created_by:supaUser.id}).select().single();
+    const{data:hh,error:he}=await c.from('casita_households').insert({name,invite_code:code,created_by:supaUser.id}).select().single();
     if(he)throw he;
-    const{error:me}=await c.from('household_members').insert({household_id:hh.id,user_id:supaUser.id,display_name:myName,icon:'👤',color:'#8FAE8B',role:'admin'});
+    const{error:me}=await c.from('casita_household_members').insert({household_id:hh.id,user_id:supaUser.id,display_name:myName,icon:'👤',color:'#8FAE8B',role:'admin'});
     if(me)throw me;
     // Crear categorías y cuentas por defecto
     const defCats=defaultCategories(hh.id);
-    await c.from('categories').insert(defCats.map(d=>({...d,household_id:hh.id})));
-    await c.from('accounts').insert([
+    await c.from('casita_categories').insert(defCats.map(d=>({...d,household_id:hh.id})));
+    await c.from('casita_accounts').insert([
       {household_id:hh.id,name:'Efectivo',icon:'👛',color:'#E0A287',opening_balance:0},
       {household_id:hh.id,name:'Banco',icon:'🏦',color:'#8FB1C9',opening_balance:0},
     ]);
@@ -1865,9 +1862,9 @@ async function hhJoin(){
   if(!code||code.length<6){showAuthErr('Ingresa el código del hogar');return;}
   if(!myName){showAuthErr('¿Cómo te llamas?');return;}
   try{
-    const c=await sb();const{data:hid,error}=await c.rpc('join_household',{p_code:code,p_name:myName,p_icon:'👤',p_color:'#8FAE8B'});
+    const c=await sb();const{data:hid,error}=await c.rpc('casita_join_household',{p_code:code,p_name:myName,p_icon:'👤',p_color:'#8FAE8B'});
     if(error)throw error;
-    const{data:hh}=await c.from('households').select('*').eq('id',hid).single();
+    const{data:hh}=await c.from('casita_households').select('*').eq('id',hid).single();
     household=hh;await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
     toast('✓ ¡Te uniste al hogar!');
   }catch(e){showAuthErr(e.message||'Código inválido o expirado');}
