@@ -1566,11 +1566,14 @@ function openTx(id){
     </div>
     <div class="f">
       <label>Monto</label>
-      <input id="fld_amount" class="amount-in" inputmode="decimal" placeholder="0" value="${esc(DRAFT.amount)}" style="font-size:30px;font-weight:900;text-align:center">
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        ${CURS.map(c=>`<button type="button" class="chip ${DRAFT.txCurrency===c?'active':''}" data-act="settxcur:${c}">${c}</button>`).join('')}
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="fld_amount" class="amount-in" inputmode="decimal" placeholder="0" value="${esc(DRAFT.amount)}" style="font-size:30px;font-weight:900;text-align:center;flex:1">
+        <div id="curBadge" style="font-size:14px;font-weight:900;color:var(--strong);background:var(--soft);border:2px solid var(--accent);border-radius:14px;padding:8px 12px;white-space:nowrap;flex:none">${DRAFT.txCurrency}</div>
       </div>
-      <div id="rateInfo" style="font-size:12px;color:var(--ink2);margin-top:6px;min-height:18px;font-weight:700"></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${CURS.map(c=>`<button type="button" class="chip ${DRAFT.txCurrency===c?'on':''}" data-act="settxcur:${c}">${c}</button>`).join('')}
+      </div>
+      <div id="rateInfo" style="font-size:12px;color:var(--ink2);margin-top:6px;min-height:18px;font-weight:700;text-align:center"></div>
     </div>
     <div class="f"><label>Categoría</label>${catPicker('category',DRAFT.type,DRAFT.category)}</div>
     <div class="f"><label>Cuenta</label>${accPicker('account',DRAFT.account)}</div>
@@ -1859,17 +1862,24 @@ function doAct(token){
     case'settxcur': {
       const cur=p[1],homeCur=mySettings.currency||'MXN';
       DRAFT.txCurrency=cur;
-      $$('[data-act^="settxcur:"]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-act')==='settxcur:'+cur));
+      /* Actualizar chips */
+      $$('[data-act^="settxcur:"]').forEach(b=>b.classList.toggle('on',b.getAttribute('data-act')==='settxcur:'+cur));
+      /* Actualizar badge de moneda */
+      const badge=$('#curBadge');if(badge)badge.textContent=cur;
       const ri=$('#rateInfo'),amtEl=$('#fld_amount');
-      if(cur===homeCur){DRAFT.txRate=1;if(ri)ri.textContent='';break;}
-      if(ri)ri.innerHTML='<span style="opacity:.6">⏳ Obteniendo tipo de cambio…</span>';
+      if(cur===homeCur){
+        DRAFT.txRate=1;
+        if(ri)ri.textContent='';
+        break;
+      }
+      if(ri)ri.innerHTML='<span style="opacity:.5">⏳ Obteniendo tipo de cambio…</span>';
       fetchRate(cur,homeCur).then(rate=>{
         if(!rate){DRAFT.txRate=null;if(ri)ri.textContent='⚠️ No se pudo obtener el tipo de cambio';return;}
         DRAFT.txRate=rate;
         const amt=parseAmt(amtEl?.value||'0');
         if(ri){
-          const conv=amt>0?` · <b>${money0(amt*rate)} ${homeCur}</b>`:'';
-          ri.innerHTML=`1 ${cur} = ${rate.toFixed(4)} ${homeCur}${conv}`;
+          const conv=amt>0?`<br><b style="font-size:14px;color:var(--strong)">${amt} ${cur} = ${money0(amt*rate)} ${homeCur}</b>`:'';
+          ri.innerHTML=`Tasa: 1 ${cur} = ${rate.toFixed(4)} ${homeCur}${conv}`;
         }
       });
       break;
@@ -2039,8 +2049,8 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='q'){ui.q=t.value;const box=$('#txlist');if(box)box.innerHTML=renderTxList();}
   if(t.id==='fld_amount'&&DRAFT.txCurrency&&DRAFT.txRate&&DRAFT.txRate!==1){
-    const ri=$('#rateInfo'),homeCur=mySettings.currency||'MXN',amt=parseAmt(t.value);
-    if(ri&&amt>0)ri.innerHTML=`1 ${DRAFT.txCurrency} = ${DRAFT.txRate.toFixed(4)} ${homeCur} · <b>${money0(amt*DRAFT.txRate)} ${homeCur}</b>`;
+    const ri=$('#rateInfo'),homeCur=mySettings.currency||'MXN',amt=parseAmt(t.value),rate=DRAFT.txRate;
+    if(ri&&amt>0)ri.innerHTML=`Tasa: 1 ${DRAFT.txCurrency} = ${rate.toFixed(4)} ${homeCur}<br><b style="font-size:14px;color:var(--strong)">${amt} ${DRAFT.txCurrency} = ${money0(amt*rate)} ${homeCur}</b>`;
   }
   if(t.getAttribute?.('data-change')){const tok=t.getAttribute('data-change');
     if(tok.startsWith('setting:')){const f=tok.split(':')[1];mySettings[f]=t.value;saveMySettings();if(f==='currency')render();}}
