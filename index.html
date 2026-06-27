@@ -455,11 +455,11 @@ const VERSION = "2.0";
 
 /* ── THEMES ── */
 const THEMES={
-  salvia:  {label:"Salvia",   accent:"#8FAE8B",strong:"#4A7A46",soft:"#EAF2EA"},
-  cielo:   {label:"Cielo",    accent:"#8FB1C9",strong:"#2A6A9A",soft:"#EAF2FA"},
-  durazno: {label:"Durazno",  accent:"#E0A287",strong:"#C06040",soft:"#FAF0EA"},
-  lavanda: {label:"Lavanda",  accent:"#B3A2D1",strong:"#6A4AA0",soft:"#F0EAF8"},
-  rosa:    {label:"Rosa",     accent:"#D58E8E",strong:"#A03030",soft:"#F8EAEA"},
+  salvia:  {label:"Salvia",   accent:"#8FAE8B",strong:"#4A7A46",soft:"#D8EDDA",bg:"#F2EDE5",surface:"#FAFAF6"},
+  cielo:   {label:"Cielo",    accent:"#6B9DC0",strong:"#1E5C8A",soft:"#D8EAF6",bg:"#EAF1F8",surface:"#F5F9FD"},
+  durazno: {label:"Durazno",  accent:"#E0A287",strong:"#B05030",soft:"#FAEAE0",bg:"#F8EDE6",surface:"#FFF8F4"},
+  lavanda: {label:"Lavanda",  accent:"#A892D0",strong:"#5A3A9A",soft:"#EAE4F8",bg:"#EEEAF8",surface:"#F8F6FE"},
+  rosa:    {label:"Rosa",     accent:"#D58E8E",strong:"#A03030",soft:"#F8E4E4",bg:"#F8ECEC",surface:"#FFF6F6"},
 };
 
 /* ── EMOJIS & COLORS ── */
@@ -581,9 +581,17 @@ function sH(title,linkLabel,linkDest,colorKey){
 
 /* topbar helper */
 function topbar(title,sub,backTo,color){
-  const back=backTo?`<button class="iconbtn" data-back="${backTo}" aria-label="Atrás">‹</button>`:`<span style="width:34px"></span>`;
-  const c=color?` style="--top-color:${color}"`:'';
-  return `<div class="top"${c}>${back}<div class="ttl"><div class="b">${esc(title)}</div>${sub?`<div class="sub">${esc(sub)}</div>`:''}</div><span style="width:34px"></span></div>`;
+  const back=backTo?`<button class="iconbtn" data-back="${backTo}" aria-label="Atrás">‹</button>`:'';
+  const col=color||'var(--strong)';
+  return `<div class="card top2" style="border-left:4px solid ${col}">
+    <div style="display:flex;align-items:center;gap:10px">
+      ${back}
+      <div>
+        <div style="font-size:24px;font-weight:900;color:${col};letter-spacing:-.5px">${esc(title)}</div>
+        ${sub?`<div style="font-size:12px;color:var(--ink2);font-weight:700">${esc(sub)}</div>`:''}
+      </div>
+    </div>
+  </div>`;
 }
 
 /* pickers */
@@ -640,11 +648,14 @@ function applyTheme(){
   r.setProperty('--accent',t.accent);r.setProperty('--strong',t.strong);r.setProperty('--soft',t.soft);
   r.setProperty('--clock-color',mySettings.clockColor||t.strong);
   r.setProperty('--head-color',mySettings.headColor||t.accent);
-  /* Custom background & nav colors */
-  if(mySettings.bgColor) r.setProperty('--bg',mySettings.bgColor);
-  else r.removeProperty('--bg');
-  if(mySettings.navColor) r.setProperty('--nav-bg',mySettings.navColor);
-  else r.removeProperty('--nav-bg');
+  /* Theme-coherent bg + surface (overridable by custom color) */
+  r.setProperty('--bg', mySettings.bgColor || t.bg || '#F2EDE5');
+  r.setProperty('--surface', t.surface || '#FAFAF6');
+  /* Nav color — set both CSS var AND direct style for iOS compatibility */
+  const navBg=mySettings.navColor||t.surface||'#FAFAF6';
+  r.setProperty('--nav-bg',navBg);
+  const nav=document.getElementById('nav');
+  if(nav) nav.style.background=navBg;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1467,25 +1478,59 @@ async function fetchWeather(){
 }
 function weatherForDate(isoDate){if(!weatherData?.daily)return null;const idx=weatherData.daily.time.indexOf(isoDate);if(idx<0)return null;return{code:weatherData.daily.weathercode[idx],max:Math.round(weatherData.daily.temperature_2m_max[idx]),min:Math.round(weatherData.daily.temperature_2m_min[idx]),precip:weatherData.daily.precipitation_probability_max?.[idx]||0};}
 function weatherWidget(){
-  if(!weatherData){return`<div class="card" style="text-align:center;padding:18px;background:linear-gradient(135deg,#E8F4FD,#FFF9E0)"><div style="font-size:30px">🌡️</div><div class="hint" style="margin-top:4px">Obteniendo clima…<br><span style="font-size:10px;color:var(--ink3)">Requiere permiso de ubicación</span></div></div>`;}
+  /* iOS Weather-style: gradient by hour + condition */
+  const hr=new Date().getHours();
+  const getGradient=(h,code)=>{
+    const isR=[61,63,65,80,81,82].some(x=>code===x);
+    const isS=[95,96,99].some(x=>code===x);
+    const isC=[2,3,45,48].some(x=>code===x);
+    if(isS) return{bg:'linear-gradient(180deg,#2A2A3A 0%,#3A3A5A 100%)',tc:'#E8E8FF',sc:'#A0A0CC'};
+    if(isR) return{bg:'linear-gradient(180deg,#3A5068 0%,#5A7088 100%)',tc:'#E8F0F8',sc:'#A8C0D0'};
+    if(h>=0&&h<4)  return{bg:'linear-gradient(180deg,#040C1C 0%,#0C1830 100%)',tc:'#C8D4F0',sc:'#8090B8'};
+    if(h>=4&&h<6)  return{bg:'linear-gradient(180deg,#0A1428 0%,#1C2A50 50%,#2A1850 100%)',tc:'#C8D4F0',sc:'#9090CC'};
+    if(h>=6&&h<8)  return{bg:'linear-gradient(180deg,#1A2060 0%,#8040A0 40%,#E05020 80%,#F09050 100%)',tc:'#FFE8D0',sc:'#FFB888'};
+    if(h>=8&&h<11) return isC
+      ?{bg:'linear-gradient(180deg,#6080A0 0%,#90A8C0 100%)',tc:'#F0F4F8',sc:'#C0D0DC'}
+      :{bg:'linear-gradient(180deg,#1878C8 0%,#3898E8 60%,#60B8F8 100%)',tc:'#FFFFFF',sc:'#C0E0FF'};
+    if(h>=11&&h<17) return isC
+      ?{bg:'linear-gradient(180deg,#7090A8 0%,#90A8C0 100%)',tc:'#F0F4F8',sc:'#C0D0DC'}
+      :{bg:'linear-gradient(180deg,#1060B0 0%,#2080D0 50%,#50A8E8 100%)',tc:'#FFFFFF',sc:'#A8D8FF'};
+    if(h>=17&&h<19) return{bg:'linear-gradient(180deg,#C03818 0%,#E06020 50%,#E09840 100%)',tc:'#FFE8C8',sc:'#FFB870'};
+    if(h>=19&&h<21) return{bg:'linear-gradient(180deg,#200838 0%,#3A1060 50%,#180828 100%)',tc:'#D0C0F0',sc:'#9080C8'};
+    return{bg:'linear-gradient(180deg,#040C1C 0%,#081428 50%,#0A1830 100%)',tc:'#C8D4F0',sc:'#8090B8'};
+  };
+  if(!weatherData){
+    const {bg,tc}=getGradient(hr,0);
+    return`<div style="background:${bg};border-radius:20px;padding:20px;color:${tc};text-align:center">
+      <div style="font-size:32px">🌡️</div>
+      <div style="font-size:13px;opacity:.7;margin-top:6px">Obteniendo clima…<br><span style="font-size:11px">Requiere permiso de ubicación</span></div>
+    </div>`;
+  }
   const cur=weatherData.current_weather,curWmo=wmoInfo(cur.weathercode);
-  const hr=new Date().getHours(),isNight=hr<6||hr>=20,isDusk=hr>=18&&hr<20,isDawn=hr>=5&&hr<7;
-  const code=cur.weathercode;
-  const isRain=[61,63,65,80,81,82].some(x=>code===x);
-  const isStorm=[95,96,99].some(x=>code===x);
-  const isCloudy=[2,3,45,48].some(x=>code===x);
-  let bg;
-  if(isNight) bg='linear-gradient(135deg,#1a2744,#2c3e6e)';
-  else if(isDusk||isDawn) bg='linear-gradient(135deg,#e8845a,#f5c27a)';
-  else if(isStorm) bg='linear-gradient(135deg,#5a6a8a,#7a8aaa)';
-  else if(isRain) bg='linear-gradient(135deg,#7a9ec0,#a8c4d8)';
-  else if(isCloudy) bg='linear-gradient(135deg,#c8c8c0,#e0ddd5)';
-  else bg='linear-gradient(135deg,#ffe18a,#fdf0c0)'; /* soleado */
-  const txColor=isNight?'color:#e8eef8':'';
-  const forecast=weatherData.daily.time.slice(0,7).map((d,i)=>{const w=weatherForDate(d);if(!w)return'';const wmo=wmoInfo(w.code);const lbl=i===0?'Hoy':i===1?'Mañana':dayOfWeekShort(d);
-    return`<div style="text-align:center;flex:1"><div style="font-size:9px;font-weight:900;color:var(--ink2)">${lbl}</div><div style="font-size:17px;line-height:1.3">${wmo.e}</div><div style="font-size:11px;font-weight:900;color:var(--ink)">${w.max}°</div><div style="font-size:9px;color:var(--ink2)">${w.min}°</div></div>`;}).join('');
-  return`<div class="card" style="background:${bg};border:none;padding:16px;${txColor}"><div class="between" style="align-items:flex-start;gap:12px"><div><div style="font-size:50px;line-height:1">${curWmo.e}</div><div style="font-size:30px;font-family:'Outfit',sans-serif;font-weight:700">${Math.round(cur.temperature)}°</div><div class="sub">${curWmo.d}</div><div class="hint">${esc(geoCity)}</div></div><div style="flex:1;min-width:0"><div style="display:flex;gap:2px;overflow-x:auto">${forecast}</div></div></div></div>`;
+  const {bg,tc,sc}=getGradient(hr,cur.weathercode);
+  const today=todayISO();
+  const todayW=weatherForDate(today);
+  const forecast=weatherData.daily.time.slice(0,7).map((d,i)=>{
+    const w=weatherForDate(d);if(!w)return'';
+    const wmo=wmoInfo(w.code);
+    const lbl=i===0?'Hoy':i===1?'Mañana':capitalize(new Date(d+'T00:00').toLocaleDateString('es-MX',{weekday:'short'})).replace('.','');
+    return`<div style="flex:1;min-width:0;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:${sc};letter-spacing:.3px">${lbl}</div>
+      <div style="font-size:24px;line-height:1.5">${wmo.e}</div>
+      <div style="font-size:12px;font-weight:900;color:${tc}">${w.max}°</div>
+      <div style="font-size:10px;color:${sc}">${w.min}°</div>
+    </div>`;
+  }).join('');
+  return`<div style="background:${bg};border-radius:20px;padding:20px 18px;color:${tc}">
+    <div style="font-size:12px;font-weight:700;color:${sc};letter-spacing:.5px;margin-bottom:2px">${esc(geoCity)||'Tu ciudad'}</div>
+    <div style="font-size:76px;font-weight:200;font-family:'Outfit',sans-serif;line-height:.9;letter-spacing:-4px;margin:8px 0 4px">${Math.round(cur.temperature)}<span style="font-size:48px">°</span></div>
+    <div style="font-size:18px;font-weight:400;margin-bottom:2px">${curWmo.d}</div>
+    ${todayW?`<div style="font-size:13px;font-weight:600;color:${sc}">Máx: ${todayW.max}°  ·  Mín: ${todayW.min}°</div>`:''}
+    <div style="height:1px;background:${tc};opacity:.18;margin:14px 0 12px"></div>
+    <div style="display:flex;gap:4px;overflow-x:auto">${forecast}</div>
+  </div>`;
 }
+
 
 function viewCalendar(){
   if(!ui.calMonth)ui.calMonth=ym(todayISO());
@@ -1931,8 +1976,8 @@ function doAct(token){
     case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
     case'gotodaydinero':  ui.month=ym(todayISO());render();return;
-    case'confirmreset': {
-      const lid=p[1];
+    case'confirmpay': closeModal();payReminder(p[1]);return;
+    case'confirmreset': {      const lid=p[1];
       modal(`${sheetHead('Reiniciar lista','🔄')}
         <div style="text-align:center;padding:8px 0 16px;line-height:1.7;font-size:14px;color:var(--ink2)">
           Todos los artículos se desmarcarán.<br>
