@@ -651,11 +651,14 @@ function applyTheme(){
   /* Theme-coherent bg + surface (overridable by custom color) */
   r.setProperty('--bg', mySettings.bgColor || t.bg || '#F2EDE5');
   r.setProperty('--surface', t.surface || '#FAFAF6');
-  /* Nav color — set both CSS var AND direct style for iOS compatibility */
+  /* Nav color — forzar tanto CSS var como style directo para iOS */
   const navBg=mySettings.navColor||t.surface||'#FAFAF6';
   r.setProperty('--nav-bg',navBg);
   const nav=document.getElementById('nav');
-  if(nav) nav.style.background=navBg;
+  if(nav){
+    nav.style.setProperty('background',navBg,'important');
+    nav.setAttribute('style',(nav.getAttribute('style')||'').replace(/background[^;]*;?/g,'')+`background:${navBg}!important`);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -826,6 +829,8 @@ function render(){
   renderNav();
   const fab=$('#fab');
   if(fab)fab.style.display=(ui.view==='dinero'||ui.view==='inicio'||ui.view==='lista')?"grid":"none";
+  /* Siempre re-aplicar colores DESPUÉS del render para que iOS los pinte */
+  applyTheme();
 }
 function renderNav(){
   const nav=$('#nav');if(!nav)return;
@@ -2011,12 +2016,11 @@ function doAct(token){
     case'setclockcolor': mySettings.clockColor=p[1];applyTheme();saveMySettings();break;
     case'setheadcolor':  mySettings.headColor=p[1];applyTheme();saveMySettings();break;
     case'setswatch': {
-      /* p = ['setswatch', 'bgColor'|'navColor', '#hexval'] */
       const swKey=p[1],swVal=p.slice(2).join(':');
       mySettings[swKey]=swVal||'';
-      saveMySettings();applyTheme();
-      /* Refresh swatch active states without full render */
-      if(ui.view==='ajustes')render();
+      saveMySettings();
+      if(ui.view==='ajustes')render(); /* render() ya llama applyTheme() al final */
+      else applyTheme();
       break;
     }
     case'setkind': {
