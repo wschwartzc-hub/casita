@@ -161,7 +161,7 @@ body{
 
 /* bottom nav */
 #nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;
-  background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;
+  background:var(--nav-bg,var(--surface));border-top:1px solid var(--line);display:flex;justify-content:space-around;
   padding:9px 6px calc(9px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 22px rgba(120,105,80,.06)}
 .nav-b{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;
   cursor:pointer;color:var(--ink3);font-size:10px;font-weight:800;padding:4px;letter-spacing:.2px}
@@ -640,6 +640,11 @@ function applyTheme(){
   r.setProperty('--accent',t.accent);r.setProperty('--strong',t.strong);r.setProperty('--soft',t.soft);
   r.setProperty('--clock-color',mySettings.clockColor||t.strong);
   r.setProperty('--head-color',mySettings.headColor||t.accent);
+  /* Custom background & nav colors */
+  if(mySettings.bgColor) r.setProperty('--bg',mySettings.bgColor);
+  else r.removeProperty('--bg');
+  if(mySettings.navColor) r.setProperty('--nav-bg',mySettings.navColor);
+  else r.removeProperty('--nav-bg');
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1402,6 +1407,17 @@ function viewAjustes(){
     <div style="font-size:11px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:9px">Tema de la app</div>
     <div class="opts">${themes}</div>
     <div style="height:1px;background:var(--line);margin:14px -4px"></div>
+    <div style="font-size:11px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Color del fondo</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${[{c:'#F4EFE7',n:'Beige'},{c:'#FFFFFF',n:'Blanco'},{c:'#F0F4F8',n:'Gris cielo'},{c:'#ECF4EC',n:'Menta'},{c:'#F0ECF8',n:'Lavanda'},{c:'#FCF0E8',n:'Durazno'},{c:'#E8F0FC',n:'Azul suave'},{c:'#F5F0E8',n:'Arena'},{c:'#F8F0F4',n:'Rosa pálido'}].map(({c,n})=>`<button type="button" data-act="setswatch:bgColor:${c}" title="${n}" style="width:30px;height:30px;border-radius:50%;background:${c};border:${(s.bgColor||'')===''+c?'2.5px solid var(--strong)':'1.5px solid rgba(0,0,0,.12)'};box-shadow:${(s.bgColor||'')===''+c?'0 0 0 1.5px white,0 0 0 3.5px var(--strong)':'none'}"></button>`).join('')}
+      <button type="button" data-act="setswatch:bgColor:" title="Por defecto" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#F4EFE7 50%,#EDF2F8 50%);border:${!s.bgColor?'2.5px solid var(--strong)':'1.5px solid rgba(0,0,0,.12)'};font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer">↺</button>
+    </div>
+    <div style="font-size:11px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Color de la barra inferior</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+      ${[{c:'#FFFFFF',n:'Blanco'},{c:'#F4EFE7',n:'Beige'},{c:'#F0F4F8',n:'Gris cielo'},{c:'#ECF4EC',n:'Menta'},{c:'#F0ECF8',n:'Lavanda'},{c:'#FCF0E8',n:'Durazno'},{c:'#E8F0FC',n:'Azul suave'},{c:'#1A2744',n:'Azul noche'},{c:'#1C1C2E',n:'Oscuro'}].map(({c,n})=>`<button type="button" data-act="setswatch:navColor:${c}" title="${n}" style="width:30px;height:30px;border-radius:50%;background:${c};border:${(s.navColor||'')===''+c?'2.5px solid var(--strong)':'1.5px solid rgba(0,0,0,.12)'};box-shadow:${(s.navColor||'')===''+c?'0 0 0 1.5px white,0 0 0 3.5px var(--strong)':'none'}"></button>`).join('')}
+      <button type="button" data-act="setswatch:navColor:" title="Por defecto" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#FFF 50%,#F4EFE7 50%);border:${!s.navColor?'2.5px solid var(--strong)':'1.5px solid rgba(0,0,0,.12)'};font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer">↺</button>
+    </div>
+    <div style="height:1px;background:var(--line);margin:14px -4px"></div>
     <div class="between" style="margin-bottom:9px"><div style="font-size:11px;font-weight:900;color:var(--ink2);text-transform:uppercase">Color del reloj</div>
       <div style="font-family:'VT323',monospace;font-size:22px;color:var(--clock-color,var(--strong))">${(()=>{const n=new Date(),h=n.getHours(),h12=h%12||12,mn=n.getMinutes();return String(h12).padStart(2,'0')+':'+String(mn).padStart(2,'0')+(h>=12?' PM':' AM')})()}</div></div>
     <div class="opts" data-pick="settingClockColor">
@@ -1949,6 +1965,15 @@ function doAct(token){
     case'theme':      mySettings.accent=p[1];applyTheme();saveMySettings();render();break;
     case'setclockcolor': mySettings.clockColor=p[1];applyTheme();saveMySettings();break;
     case'setheadcolor':  mySettings.headColor=p[1];applyTheme();saveMySettings();break;
+    case'setswatch': {
+      /* p = ['setswatch', 'bgColor'|'navColor', '#hexval'] */
+      const swKey=p[1],swVal=p.slice(2).join(':');
+      mySettings[swKey]=swVal||'';
+      saveMySettings();applyTheme();
+      /* Refresh swatch active states without full render */
+      if(ui.view==='ajustes')render();
+      break;
+    }
     case'setkind': {
       DRAFT.kind=p[1];
       const ki=$('#fld_kind');if(ki)ki.value=p[1];
