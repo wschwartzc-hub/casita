@@ -1981,18 +1981,7 @@ function doAct(token){
     case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
     case'gotodaydinero':  ui.month=ym(todayISO());render();return;
-    case'confirmpay': closeModal();payReminder(p[1]);return;
-    case'confirmreset': {      const lid=p[1];
-      modal(`${sheetHead('Reiniciar lista','🔄')}
-        <div style="text-align:center;padding:8px 0 16px;line-height:1.7;font-size:14px;color:var(--ink2)">
-          Todos los artículos se desmarcarán.<br>
-          Útil para <b>volver a usar la misma lista</b><br> en tu próximo viaje al súper.
-        </div>
-        <button class="btn pix" data-act="resetlist:${lid}">🔄 Sí, reiniciar</button>
-        <button class="btn ghost mt" data-close="1">Cancelar</button>`);
-      return;
-    }
-    case'resetlist': closeModal();resetList(p[1]);return;
+
   }
   /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
@@ -2008,6 +1997,21 @@ function doAct(token){
     case'save':       saveForm(p[1]);break;
     case'saveandmore':saveForm(p[1],true);break;
     case'del':        deleteEntity(p[1],p[2]);break;
+    case'confirmpay':   closeModal();payReminder(p[1]);return;
+    case'resetlist':    closeModal();resetList(p[1]);return;
+    case'confirmreset': {
+      const lid=p[1];
+      modal(`${sheetHead('Reiniciar lista','🔄')}
+        <div style="text-align:center;padding:8px 0 16px;line-height:1.7;font-size:14px;color:var(--ink2)">
+          Todos los artículos se desmarcarán.<br>
+          Útil para <b>volver a usar la misma lista</b><br> en tu próximo viaje al súper.
+        </div>
+        <button class="btn pix" data-act="resetlist:${lid}">🔄 Sí, reiniciar</button>
+        <button class="btn ghost mt" data-close="1">Cancelar</button>`);
+      return;
+    }
+    case'delitem':    deleteEntity('item',p[1]);return;
+    case'visfilter':  ui.visFilter=p[1];render();return;
     case'openlist':   ui.listId=p[1];ui.view='lista';render();break;
     case'item':       toggleItem(p[1]);break;
     case'rdone':      toggleReminder(p[1]);break;
