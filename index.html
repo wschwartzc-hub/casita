@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F4EFE7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -436,7 +436,7 @@ nav{z-index:15!important}
 <div id="authWrap" aria-modal="true"></div>
 <div id="app">
   <main id="screen"></main>
-  <button id="fab" class="fab">＋</button>
+  <button id="fab" class="fab" title="Nuevo movimiento"><span style="font-size:26px;line-height:1">＋</span><span style="font-size:8px;font-weight:900;letter-spacing:.5px;display:block;margin-top:1px;opacity:.85">AÑADIR</span></button>
   <nav id="nav"></nav>
 </div>
 <div id="modalRoot"></div>
@@ -684,8 +684,8 @@ async function subscribeRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'casita_transactions',filter:`household_id=eq.${household.id}`},()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'casita_goals',filter:`household_id=eq.${household.id}`},()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'casita_reminders',filter:`household_id=eq.${household.id}`},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'casita_items'},()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'casita_moods',filter:`household_id=eq.${household.id}`},()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_items'},()=>{if(Date.now()-_localUpd>2000)fetchAll().then(render);})
+    .on('postgres_changes',{event:'*',schema:'public',table:'casita_moods',filter:`household_id=eq.${household.id}`},()=>{if(Date.now()-_localUpd>2000)fetchAll().then(render);})
     .subscribe();
 }
 
@@ -1110,7 +1110,7 @@ function viewDinero(){
   <div class="chips" id="txFilters">
     ${['todo','gasto','ingreso'].map(f=>`<button class="chip ${ui.txFilter===f?'active':''}" data-act="filter:${f}">${f==='todo'?'Todo':f==='gasto'?'Gastos':'Ingresos'}</button>`).join('')}
   </div>
-  <div class="search"><span>🔎</span><input id="q" data-input="q" placeholder="Buscar…" value="${esc(ui.q)}"></div>
+  <div class="search" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><span style="font-size:18px;flex:none">🔎</span><input id="q" data-input="q" placeholder="Buscar movimiento, categoría…" value="${esc(ui.q)}" style="flex:1;border:none;background:none;font-size:14px;font-family:inherit;outline:none;color:var(--ink)"></div>
   <div id="txlist">${renderTxList()}</div>
   <div style="height:90px"></div>`;
 }
@@ -1169,7 +1169,17 @@ function viewMetas(){
   const cards=visibleGoals.map(g=>{
     const c=goalCalc(g),isPersonal=g.visibility==='personal';
     const mb=memberById(g.user_id);
-    const sub=g.target_date?(c.remain<=0?'¡Meta cumplida! 🎉':(c.daysLeft>0?`Faltan ${c.daysLeft} días`:'Fecha vencida')):(c.remain<=0?'¡Meta cumplida! 🎉':'Sin fecha límite');
+    const sub=(()=>{
+      if(c.remain<=0)return'¡Meta cumplida! 🎉';
+      if(!g.target_date)return c.pct>0?`💪 ¡Vas por el ${Math.round(c.pct)}%!`:'✨ Cada peso cuenta';
+      const dl=c.daysLeft;
+      if(dl<=0)return'Fecha vencida';
+      if(dl<=7)return`🔥 ¡Faltan solo ${dl} días!`;
+      if(dl<=30)return`⏳ ${Math.ceil(dl/7)} semanas · ¡Tú puedes!`;
+      if(dl<=365)return`📅 ${Math.ceil(dl/30)} meses · ${c.pct>0?'¡Vas muy bien!':'¡Empieza hoy!'}`;
+      const yrs=Math.ceil(dl/365);
+      return`🗓️ ~${yrs} año${yrs>1?'s':''} · ${c.pct>0?`¡Ya llevas el ${Math.round(c.pct)}%!`:'¡Da el primer paso!'}`;
+    })();
     const plan=(c.remain>0&&g.target_date&&c.perWeek!=null)?`<div class="row2" style="margin-top:10px">
       <div class="stat"><div class="lbl">Por semana</div><div class="v">${money0(c.perWeek)}</div></div>
       <div class="stat"><div class="lbl">Por mes</div><div class="v">${money0(c.perMonth)}</div></div></div>`:'';
@@ -1256,7 +1266,10 @@ function viewList(id){
   const doneHtml=done.length?`${sH(`Completadas (${done.length})`,`Limpiar`,'','listas')}<div class="card list">${done.map(rowOf).join('')}</div>`:'';
   return`${topbar(isSuper?'Súper':'Tareas','','listas',l.color)}
   ${typeBadge}${head}
-  <button class="btn pix" data-open="item:${l.id}" style="margin-bottom:12px;background:${l.color};color:#fff">＋ Agregar ${isSuper?'producto':'tarea'}</button>
+  <div class="seg2" style="gap:8px;margin-bottom:12px">
+    <button class="btn pix" data-open="item:${l.id}" style="flex:2;background:${l.color};color:#fff">＋ Agregar ${isSuper?'producto':'tarea'}</button>
+    ${done.length?`<button class="btn ghost" style="flex:1" data-act="confirmreset:${l.id}">🔄 Reiniciar</button>`:''}
+  </div>
   ${pendHtml}${doneHtml}
   <div style="height:90px"></div>`;
 }
@@ -1440,11 +1453,22 @@ function weatherForDate(isoDate){if(!weatherData?.daily)return null;const idx=we
 function weatherWidget(){
   if(!weatherData){return`<div class="card" style="text-align:center;padding:18px;background:linear-gradient(135deg,#E8F4FD,#FFF9E0)"><div style="font-size:30px">🌡️</div><div class="hint" style="margin-top:4px">Obteniendo clima…<br><span style="font-size:10px;color:var(--ink3)">Requiere permiso de ubicación</span></div></div>`;}
   const cur=weatherData.current_weather,curWmo=wmoInfo(cur.weathercode);
-  const BG_MAP={0:'linear-gradient(135deg,#FFF9C0,#FFE4B2)',1:'linear-gradient(135deg,#FFF9E0,#E8F4FD)',2:'linear-gradient(135deg,#E8F4FD,#F0F0FF)',3:'linear-gradient(135deg,#DDE8F0,#E8ECF4)',61:'linear-gradient(135deg,#C8D8EC,#E0ECF4)',95:'linear-gradient(135deg,#C8C8E8,#B8C0D8)'};
-  const bg=BG_MAP[Math.round(cur.weathercode/10)*10]||'linear-gradient(135deg,#E8F4FD,#FFF9E0)';
+  const hr=new Date().getHours(),isNight=hr<6||hr>=20,isDusk=hr>=18&&hr<20,isDawn=hr>=5&&hr<7;
+  const code=cur.weathercode;
+  const isRain=[61,63,65,80,81,82].some(x=>code===x);
+  const isStorm=[95,96,99].some(x=>code===x);
+  const isCloudy=[2,3,45,48].some(x=>code===x);
+  let bg;
+  if(isNight) bg='linear-gradient(135deg,#1a2744,#2c3e6e)';
+  else if(isDusk||isDawn) bg='linear-gradient(135deg,#e8845a,#f5c27a)';
+  else if(isStorm) bg='linear-gradient(135deg,#5a6a8a,#7a8aaa)';
+  else if(isRain) bg='linear-gradient(135deg,#7a9ec0,#a8c4d8)';
+  else if(isCloudy) bg='linear-gradient(135deg,#c8c8c0,#e0ddd5)';
+  else bg='linear-gradient(135deg,#ffe18a,#fdf0c0)'; /* soleado */
+  const txColor=isNight?'color:#e8eef8':'';
   const forecast=weatherData.daily.time.slice(0,7).map((d,i)=>{const w=weatherForDate(d);if(!w)return'';const wmo=wmoInfo(w.code);const lbl=i===0?'Hoy':i===1?'Mañana':dayOfWeekShort(d);
     return`<div style="text-align:center;flex:1"><div style="font-size:9px;font-weight:900;color:var(--ink2)">${lbl}</div><div style="font-size:17px;line-height:1.3">${wmo.e}</div><div style="font-size:11px;font-weight:900;color:var(--ink)">${w.max}°</div><div style="font-size:9px;color:var(--ink2)">${w.min}°</div></div>`;}).join('');
-  return`<div class="card" style="background:${bg};border:none;padding:16px"><div class="between" style="align-items:flex-start;gap:12px"><div><div style="font-size:50px;line-height:1">${curWmo.e}</div><div style="font-size:30px;font-family:'Outfit',sans-serif;font-weight:700">${Math.round(cur.temperature)}°</div><div class="sub">${curWmo.d}</div><div class="hint">${esc(geoCity)}</div></div><div style="flex:1;min-width:0"><div style="display:flex;gap:2px;overflow-x:auto">${forecast}</div></div></div></div>`;
+  return`<div class="card" style="background:${bg};border:none;padding:16px;${txColor}"><div class="between" style="align-items:flex-start;gap:12px"><div><div style="font-size:50px;line-height:1">${curWmo.e}</div><div style="font-size:30px;font-family:'Outfit',sans-serif;font-weight:700">${Math.round(cur.temperature)}°</div><div class="sub">${curWmo.d}</div><div class="hint">${esc(geoCity)}</div></div><div style="flex:1;min-width:0"><div style="display:flex;gap:2px;overflow-x:auto">${forecast}</div></div></div></div>`;
 }
 
 function viewCalendar(){
@@ -1487,7 +1511,7 @@ function viewCalendar(){
       <button class="iconbtn" data-act="calmonth:-1">‹</button>
       <div style="text-align:center">
         <button data-act="openmonthpick" style="background:none;border:none;cursor:pointer;padding:4px 10px;border-radius:12px;white-space:nowrap">
-          <div class="b" style="font-size:17px">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
+          <div class="b" style="font-size:17px;color:var(--ink)">${capitalize(monthLabel(m))} <span style="font-size:11px;color:var(--ink2)">▾</span></div>
         </button>
         ${moodStats?`<div class="hint" style="margin-top:2px">${moodStats}</div>`:''}
       </div>
@@ -1834,12 +1858,20 @@ async function deleteEntity(kind,id){
   }catch(e){toast('Error al eliminar');console.error(e);}
 }
 
+let _localUpd=0; /* guard: ignora Realtime por 2s tras cambio local */
 async function toggleItem(id){
-  const i=items.find(x=>x.id===id);if(!i)return;
-  i.done=!i.done;
-  const c=await sb();await c.from('casita_items').update({done:i.done}).eq('id',id);
-  if(i.done){const btn=document.querySelector(`[data-act="item:${id}"]`);if(btn){const r=btn.getBoundingClientRect();confetti(r.left+r.width/2,r.top+r.height/2,12);}else confetti(window.innerWidth/2,window.innerHeight/2,12);}
-  render();
+  const i=items.find(x=>x&&x.id===id);if(!i)return;
+  i.done=!i.done;_localUpd=Date.now();
+  /* Confetti inmediato */
+  if(i.done){const btn=document.querySelector('[data-act="item:'+id+'"]');
+    if(btn){const r=btn.getBoundingClientRect();confetti(r.left+r.width/2,r.top+r.height/2,12);}
+    else confetti(window.innerWidth/2,window.innerHeight*.4,12);}
+  /* Re-render sin animación */
+  const scr=$('#screen');
+  if(scr&&ui.view==='lista'){scr.style.animation='none';scr.innerHTML=(ROUTES.lista||ROUTES.listas)();renderNav();requestAnimationFrame(()=>{scr.style.animation='';});}
+  else render();
+  /* DB async */
+  try{const c=await sb();await c.from('casita_items').update({done:i.done}).eq('id',id);}catch(e){}
 }
 async function toggleReminder(id){
   const r=reminders.find(x=>x.id===id);if(!r)return;r.done=!r.done;await dbUpdate('casita_reminders',id,{done:r.done});render();
@@ -1883,7 +1915,18 @@ function doAct(token){
     case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
     case'gotodaydinero':  ui.month=ym(todayISO());render();return;
-    case'confirmpay':     closeModal();payReminder(p[1]);return;
+    case'confirmreset': {
+      const lid=p[1];
+      modal(`${sheetHead('Reiniciar lista','🔄')}
+        <div style="text-align:center;padding:8px 0 16px;line-height:1.7;font-size:14px;color:var(--ink2)">
+          Todos los artículos se desmarcarán.<br>
+          Útil para <b>volver a usar la misma lista</b><br> en tu próximo viaje al súper.
+        </div>
+        <button class="btn pix" data-act="resetlist:${lid}">🔄 Sí, reiniciar</button>
+        <button class="btn ghost mt" data-close="1">Cancelar</button>`);
+      return;
+    }
+    case'resetlist': closeModal();resetList(p[1]);return;
   }
   /* Casos parametrizados: split por ':' */
   const p=token.split(':');const a=p[0];
@@ -2195,6 +2238,18 @@ Pasos para unirte:
 
   const url='https://wa.me/?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
+}
+
+async function resetList(listId){
+  try{
+    const listItems=items.filter(i=>i&&i.list_id===listId&&i.done);
+    const c=await sb();
+    await Promise.all(listItems.map(i=>c.from('casita_items').update({done:false}).eq('id',i.id)));
+    items=items.map(i=>i&&i.list_id===listId?{...i,done:false}:i);
+    _localUpd=Date.now();
+    const scr=$('#screen');if(scr&&ui.view==='lista'){scr.style.animation='none';scr.innerHTML=(ROUTES.lista)();renderNav();}
+    toast('🔄 Lista reiniciada — ¡listo para el siguiente viaje!');
+  }catch(e){toast('Error al reiniciar');}
 }
 
 function confirmPay(id){
