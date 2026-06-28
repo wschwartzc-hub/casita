@@ -543,6 +543,20 @@ async function fetchRate(from,to){
 }
 function addDays(d,n){const dt=new Date(d+'T00:00');dt.setDate(dt.getDate()+n);return dt.toISOString().slice(0,10)}
 function addMonths(d,n){const dt=new Date(d+'T00:00');dt.setMonth(dt.getMonth()+n);return dt.toISOString().slice(0,10)}
+/* Calcula el N-ésimo día de semana del mes (n=-1 = último) */
+function nthWeekdayOfMonth(year,month,dow,n){
+  if(n===-1){let d=new Date(year,month+1,0);while(d.getDay()!==dow)d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);}
+  let d=new Date(year,month,1),count=0;
+  while(d.getMonth()===month){if(d.getDay()===dow&&++count===n)return d.toISOString().slice(0,10);d.setDate(d.getDate()+1);}
+  /* Si el mes tiene menos semanas que n, usar el último */
+  return nthWeekdayOfMonth(year,month,dow,-1);
+}
+function nextNthWeekday(currentDate,recurrence){
+  /* recurrence formato: 'nw_4_1' = 1er jueves, 'nw_4_-1' = último jueves */
+  const parts=recurrence.split('_');const dow=parseInt(parts[1]),n=parseInt(parts[2]);
+  const dt=new Date(currentDate+'T00:00');dt.setMonth(dt.getMonth()+1);
+  return nthWeekdayOfMonth(dt.getFullYear(),dt.getMonth(),dow,n);
+}
 function shiftMonth(m,n){const [y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 function monthsBetween(a,b){const [ay,am]=a.split('-').map(Number);const [by,bm]=b.split('-').map(Number);return Math.max(1,(by-ay)*12+(bm-am))}
 const _MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
@@ -556,7 +570,16 @@ function dayLabel(iso){try{const d=new Date(iso+'T00:00');const t=todayISO();if(
 function dueLabel(iso){if(!iso)return null;const t=todayISO();const diff=Math.round((new Date(iso+'T00:00')-new Date(t+'T00:00'))/86400000);if(diff<0)return{txt:`Venció hace ${Math.abs(diff)}d`,bad:true};if(diff===0)return{txt:'Hoy',bad:false};if(diff===1)return{txt:'Mañana',bad:false};return{txt:`En ${diff}d`,bad:false}}
 function monthLabel(m){if(!m)return'';const [y,mo]=m.split('-');return new Date(parseInt(y),parseInt(mo)-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'})}
 function dayOfWeekShort(iso){const d=new Date(iso+'T00:00');return d.toLocaleDateString('es-MX',{weekday:'short'}).replace('.','').slice(0,3)}
-function recurLabel(r){return r==='diario'?'Diario':r==='semanal'?'Semanal':r==='mensual'?'Mensual':r==='quincenal'?'Quincenal':r==='anual'?'Anual':'Una vez'}
+function recurLabel(r){
+  if(!r)return'Una vez';
+  if(r.startsWith('nw_')){
+    const parts=r.split('_'),dow=parseInt(parts[1]),n=parseInt(parts[2]);
+    const DOWS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const WK={1:'1er',2:'2do',3:'3er',4:'4to'};
+    return(n===-1?'Último':WK[n]||n+'°')+' '+DOWS[dow]+' del mes';
+  }
+  return r==='diario'?'Diario':r==='semanal'?'Semanal':r==='mensual'?'Mensual':r==='quincenal'?'Quincenal':r==='anual'?'Anual':'Una vez';
+}
 function segbar(pct,color,n=18){
   pct=Math.max(0,Math.min(100,pct||0));const on=Math.round(pct/100*n);const full=pct>=100;
   let h='<div class="seg">';
@@ -1400,7 +1423,10 @@ function viewRecordatorios(){
   const totalFijo=sum(reminders.filter(r=>r.amount&&r.recurrence&&r.recurrence!=='none'),r=>Number(r.amount));
   return`${topbar('Recordatorios','Pagos fijos y avisos','mas','#9A6DC4')}
   ${totalFijo>0?`<div class="card hero" style="padding:14px"><div class="between"><div class="lbl">Pagos fijos del hogar</div><div class="totline pix" style="font-size:22px">${money0(totalFijo)}</div></div></div>`:''}
-  <button class="btn pix" data-open="reminder:new" style="margin-bottom:12px">＋ Nuevo recordatorio</button>
+  <div class="seg2" style="margin-bottom:12px;gap:8px">
+    <button class="btn pix" style="flex:2" data-open="reminder:new">＋ Nuevo recordatorio</button>
+    <button class="btn" style="flex:1;background:#8A6000;color:#fff;border:none" data-act="opensueldo">💰 Sueldo</button>
+  </div>
   <div class="card list">${rows}</div>
   <div style="height:90px"></div>`;
 }
@@ -2044,7 +2070,8 @@ async function payReminder(id){
     const o={type:rType,amount:Number(r.amount),category_id:cat?.id||null,account_id:accounts[0]?.id||null,note:r.title,date:todayISO(),visibility:r.visibility||'hogar'};
     const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
   if(r.recurrence&&r.recurrence!=='none'){const map={diario:1,semanal:7,quincenal:15};
-    const newDate=r.recurrence==='mensual'?addMonths(r.date||todayISO(),1):r.recurrence==='anual'?addMonths(r.date||todayISO(),12):addDays(r.date||todayISO(),map[r.recurrence]||30);
+    const base=r.date||todayISO();
+    const newDate=r.recurrence.startsWith('nw_')?nextNthWeekday(base,r.recurrence):r.recurrence==='mensual'?addMonths(base,1):r.recurrence==='anual'?addMonths(base,12):addDays(base,map[r.recurrence]||30);
     r.date=newDate;r.done=false;await dbUpdate('casita_reminders',id,{date:newDate,done:false});toast('✓ Pagado y reagendado');
   }else{r.done=true;await dbUpdate('casita_reminders',id,{done:true});toast('✓ Pagado');}
   render();
@@ -2077,6 +2104,7 @@ function doAct(token){
     case'openmonthpick:dinero': openMonthPicker('dinero');return;
     case'applymonthpick': {const mon=$('#pickMon')?.value,yr=$('#pickYear')?.value,tgt=$('#pickTarget')?.value;if(mon&&yr){const nm=yr+'-'+mon;if(tgt==='dinero')ui.month=nm;else ui.calMonth=nm;closeModal();render();}return;}
     case'gotoday':        ui.calMonth=ym(todayISO());closeModal();render();return;
+    case'opensueldo':     openSueldo();return;
     case'gotodaydinero':  ui.month=ym(todayISO());render();return;
 
   }
@@ -2092,6 +2120,7 @@ function doAct(token){
     case'txtype':     captureModal();DRAFT.type=p[1];DRAFT.category=null;openTx(DRAFT._id);break;
     case'cattype':    captureModal();DRAFT.type=p[1];openCategory(DRAFT._id);break;
     case'save':       saveForm(p[1]);break;
+    case'savesueldo': saveSueldo();return;
     case'saveandmore':saveForm(p[1],true);break;
     case'del':        deleteEntity(p[1],p[2]);break;
     case'confirmpay':   closeModal();payReminder(p[1]);return;
@@ -2511,6 +2540,68 @@ function setupPWA(){
     lm.rel='manifest';lm.href=URL.createObjectURL(blob);
     if(!lm.id){lm.id='appManifest';document.head.appendChild(lm);}
   }catch(e){}
+}
+
+function openSueldo(){
+  const DAYS=[['0','Domingo'],['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado']];
+  const dayOpts=DAYS.map(([v,l])=>`<option value="${v}"${v==='4'?' selected':''}>${l}</option>`).join('');
+  const today=todayISO();
+  modal(`${sheetHead('Sueldo semanal variable','💰')}
+    <div class="hint" style="margin-bottom:12px">Configura los 4 pagos del mes con montos distintos. Se crearán 4 recordatorios de ingreso automáticamente.</div>
+    <div class="f"><label>Día de pago</label>
+      <select id="sueldo_dow" style="width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);font-family:inherit;font-size:14px;font-weight:700;color:var(--ink)">
+        ${dayOpts}
+      </select>
+    </div>
+    <div class="f"><label>Nombre del ingreso</label>
+      <input id="sueldo_name" placeholder="Ej. Sueldo Altavex" value="Sueldo">
+    </div>
+    <div style="font-size:12px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">Monto por semana</div>
+    <div class="f2">
+      <div class="f"><label>1er pago</label><input id="sueldo_w1" inputmode="decimal" placeholder="$0"></div>
+      <div class="f"><label>2do pago</label><input id="sueldo_w2" inputmode="decimal" placeholder="$0"></div>
+    </div>
+    <div class="f2">
+      <div class="f"><label>3er pago</label><input id="sueldo_w3" inputmode="decimal" placeholder="$0"></div>
+      <div class="f"><label>Último pago 🎉</label><input id="sueldo_wu" inputmode="decimal" placeholder="$0"></div>
+    </div>
+    <div class="f"><label>Categoría (opcional)</label>${catPicker('sueldoCat','ingreso',null)}</div>
+    <button class="btn pix" style="margin-top:12px" data-act="savesueldo">Crear recordatorios →</button>`);
+}
+
+async function saveSueldo(){
+  const dow=parseInt($('#sueldo_dow')?.value||'4');
+  const name=($('#sueldo_name')?.value||'Sueldo').trim();
+  const w1=parseAmt($('#sueldo_w1')?.value)||0;
+  const w2=parseAmt($('#sueldo_w2')?.value)||0;
+  const w3=parseAmt($('#sueldo_w3')?.value)||0;
+  const wu=parseAmt($('#sueldo_wu')?.value)||0;
+  if(!name)return shake('#sueldo_name');
+  const catId=DRAFT.sueldoCat||null;
+  /* Calcular fechas del mes actual para cada semana */
+  const now=new Date();
+  const y=now.getFullYear(),mo=now.getMonth();
+  const semanas=[
+    {n:1,amt:w1,label:'1er'},
+    {n:2,amt:w2,label:'2do'},
+    {n:3,amt:w3,label:'3er'},
+    {n:-1,amt:wu,label:'Último'},
+  ];
+  const DOWS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const c=await sb();
+  let created=0;
+  for(const sem of semanas){
+    if(!sem.amt)continue;
+    const fecha=nthWeekdayOfMonth(y,mo,dow,sem.n);
+    const o={title:`${name} (${sem.label} ${DOWS[dow]})`,amount:sem.amt,date:fecha,
+      recurrence:`nw_${dow}_${sem.n}`,category_id:catId,done:false,
+      visibility:'personal',type:'ingreso'};
+    const row=await dbInsert('casita_reminders',o);
+    if(row)reminders.push(row);
+    created++;
+  }
+  closeModal();render();
+  toast(`✓ ${created} recordatorio${created!==1?'s':''} de sueldo creados 💰`);
 }
 
 /* ═══════════════════════════════════════════════════════
