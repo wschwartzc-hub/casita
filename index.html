@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Casita</title>
+<link rel="apple-touch-icon" id="appIcon">
+<link rel="manifest" id="appManifest">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 
@@ -547,7 +549,7 @@ function dayLabel(iso){try{const d=new Date(iso+'T00:00');const t=todayISO();if(
 function dueLabel(iso){if(!iso)return null;const t=todayISO();const diff=Math.round((new Date(iso+'T00:00')-new Date(t+'T00:00'))/86400000);if(diff<0)return{txt:`Venció hace ${Math.abs(diff)}d`,bad:true};if(diff===0)return{txt:'Hoy',bad:false};if(diff===1)return{txt:'Mañana',bad:false};return{txt:`En ${diff}d`,bad:false}}
 function monthLabel(m){if(!m)return'';const [y,mo]=m.split('-');return new Date(parseInt(y),parseInt(mo)-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'})}
 function dayOfWeekShort(iso){const d=new Date(iso+'T00:00');return d.toLocaleDateString('es-MX',{weekday:'short'}).replace('.','').slice(0,3)}
-function recurLabel(r){return r==='semanal'?'Semanal':r==='mensual'?'Mensual':r==='quincenal'?'Quincenal':r==='anual'?'Anual':'Una vez'}
+function recurLabel(r){return r==='diario'?'Diario':r==='semanal'?'Semanal':r==='mensual'?'Mensual':r==='quincenal'?'Quincenal':r==='anual'?'Anual':'Una vez'}
 function segbar(pct,color,n=18){
   pct=Math.max(0,Math.min(100,pct||0));const on=Math.round(pct/100*n);const full=pct>=100;
   let h='<div class="seg">';
@@ -690,7 +692,7 @@ async function fetchAll(){
     if(listIds.length){const{data:id}=await c.from('casita_items').select('*').in('list_id',listIds);items=id||[];}else items=[];
     const{data:totals}=await c.rpc('casita_get_personal_totals',{p_household_id:hid,p_month:ui.month});
     memberPersonalTotals=totals||[];
-    applyTheme();render();
+    applyTheme();render();setupPWA();
   }catch(e){console.warn('fetchAll:',e);}finally{_fetching=false;}
 }
 
@@ -1782,7 +1784,7 @@ function openItem(listId,id){
 function openReminder(id){
   const editing=id&&id!=='new';const r=editing?reminders.find(x=>x.id===id):null;
   DRAFT={_kind:'reminder',_id:editing?id:null,title:r?.title||'',amount:r?.amount||'',date:r?.date||todayISO(),recurrence:r?.recurrence||'mensual',category:r?.category_id||null,vis:r?.visibility||'hogar'};
-  const recs=[['none','Una vez'],['semanal','Semanal'],['quincenal','Quincenal'],['mensual','Mensual'],['anual','Anual']];
+  const recs=[['none','Una vez'],['diario','Diario'],['semanal','Semanal'],['quincenal','Quincenal'],['mensual','Mensual'],['anual','Anual']];
   modal(`${sheetHead(editing?'Editar recordatorio':'Nuevo recordatorio','🔔')}
     <div class="f"><label>¿Qué pago o aviso?</label><input id="fld_title" placeholder="Ej. Renta, Netflix, Luz" value="${esc(DRAFT.title)}"></div>
     <div class="f2">
@@ -1940,14 +1942,28 @@ async function toggleItem(id){
   try{const c=await sb();await c.from('casita_items').update({done:i.done}).eq('id',id);}catch(e){}
 }
 async function toggleReminder(id){
-  const r=reminders.find(x=>x.id===id);if(!r)return;r.done=!r.done;await dbUpdate('casita_reminders',id,{done:r.done});render();
+  const r=reminders.find(x=>x&&x.id===id);if(!r)return;
+  if(r.recurrence&&r.recurrence!=='none'&&!r.amount){
+    /* Recordatorio recurrente sin monto: avanzar fecha en lugar de marcar done */
+    const map={diario:1,semanal:7,quincenal:15};
+    let newDate;
+    if(r.recurrence==='mensual') newDate=addMonths(r.date||todayISO(),1);
+    else if(r.recurrence==='anual') newDate=addMonths(r.date||todayISO(),12);
+    else newDate=addDays(r.date||todayISO(),map[r.recurrence]||7);
+    r.date=newDate;r.done=false;
+    await dbUpdate('casita_reminders',id,{date:newDate,done:false});
+    toast('✓ Marcado — próxima vez: '+fdate(newDate));
+  }else{
+    r.done=!r.done;await dbUpdate('casita_reminders',id,{done:r.done});
+  }
+  render();
 }
 async function payReminder(id){
   const r=reminders.find(x=>x.id===id);if(!r)return;
   if(r.amount>0){const cat=r.category_id?catById(r.category_id):categories.find(c=>c.type==='gasto');
     const o={type:'gasto',amount:Number(r.amount),category_id:cat?.id||null,account_id:accounts[0]?.id||null,note:r.title,date:todayISO(),visibility:r.visibility||'hogar'};
     const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
-  if(r.recurrence&&r.recurrence!=='none'){const map={semanal:7,quincenal:15};
+  if(r.recurrence&&r.recurrence!=='none'){const map={diario:1,semanal:7,quincenal:15};
     const newDate=r.recurrence==='mensual'?addMonths(r.date||todayISO(),1):r.recurrence==='anual'?addMonths(r.date||todayISO(),12):addDays(r.date||todayISO(),map[r.recurrence]||30);
     r.date=newDate;r.done=false;await dbUpdate('casita_reminders',id,{date:newDate,done:false});toast('✓ Pagado y reagendado');
   }else{r.done=true;await dbUpdate('casita_reminders',id,{done:true});toast('✓ Pagado');}
@@ -2340,6 +2356,39 @@ function confirmPay(id){
     </div>
     <button class="btn pix" data-act="confirmpay:${id}">✓ Sí, ya pagué</button>
     <button class="btn ghost mt" data-close="1">Cancelar</button>`);
+}
+
+function setupPWA(){
+  /* Genera ícono de la app via canvas — funciona sin archivos extra */
+  try{
+    const size=512,c=document.createElement('canvas');
+    c.width=size;c.height=size;const ctx=c.getContext('2d');
+    /* Fondo verde salvia redondeado */
+    ctx.beginPath();ctx.roundRect(0,0,size,size,size*.2);
+    const g=ctx.createLinearGradient(0,0,size,size);
+    g.addColorStop(0,'#9ABF96');g.addColorStop(1,'#6A9066');
+    ctx.fillStyle=g;ctx.fill();
+    /* Casa emoji grande */
+    ctx.font=`${size*.58}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🏠',size*.5,size*.55);
+    /* Texto "Casita" pequeño debajo */
+    ctx.font=`900 ${size*.1}px 'Nunito',sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.fillText('Casita',size*.5,size*.87);
+    const iconUrl=c.toDataURL('image/png');
+    /* apple-touch-icon */
+    const li=document.getElementById('appIcon')||document.createElement('link');
+    li.rel='apple-touch-icon';li.href=iconUrl;
+    if(!li.id){li.id='appIcon';document.head.appendChild(li);}
+    /* Web App Manifest para Android/Chrome */
+    const manifest={name:'Casita 🏠',short_name:'Casita',start_url:'/',
+      display:'standalone',background_color:'#F2EDE5',theme_color:'#8FAE8B',
+      icons:[{src:iconUrl,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+    const blob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
+    const lm=document.getElementById('appManifest')||document.createElement('link');
+    lm.rel='manifest';lm.href=URL.createObjectURL(blob);
+    if(!lm.id){lm.id='appManifest';document.head.appendChild(lm);}
+  }catch(e){}
 }
 
 /* ═══════════════════════════════════════════════════════
