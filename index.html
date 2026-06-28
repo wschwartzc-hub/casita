@@ -34,7 +34,7 @@ body{
 .px{display:block;image-rendering:pixelated}
 #app{max-width:480px;margin:0 auto;height:100dvh;height:100vh;background:var(--bg);position:relative;
   display:flex;flex-direction:column;box-shadow:0 0 60px rgba(120,105,80,.08)}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px 120px;animation:fade .25s ease}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px calc(120px + env(safe-area-inset-bottom, 0px));animation:fade .25s ease}
 @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* headers */
@@ -156,7 +156,7 @@ body{
 .menu .item .ar{color:var(--ink3);font-size:20px;font-weight:800}
 
 /* FAB */
-.fab{position:fixed;bottom:88px;right:max(16px,calc(50% - 224px));width:58px;height:58px;border-radius:19px;
+.fab{position:fixed;bottom:calc(88px + env(safe-area-inset-bottom, 0px));right:max(16px,calc(50% - 224px));width:58px;height:58px;border-radius:19px;
   border:none;background:var(--accent);color:#fff;font-size:32px;line-height:1;cursor:pointer;z-index:40;
   display:grid;place-items:center;box-shadow:0 12px 24px rgba(110,140,106,.42)}
 .fab:active{transform:scale(.92)}
@@ -221,6 +221,13 @@ details summary::-webkit-details-marker{display:none}
 #fishbg{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
 .fish-el{position:absolute;will-change:transform}
 @keyframes swimRight{from{transform:translateX(-160px)}to{transform:translateX(calc(100vw + 160px))}}
+@keyframes twinkle{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.15;transform:scale(.5)}}
+@keyframes cloudDrift{0%,100%{transform:translateX(0)}50%{transform:translateX(10px)}}
+@keyframes cloudDrift2{0%,100%{transform:translateX(0)}50%{transform:translateX(-8px)}}
+@keyframes rainFall{from{transform:translateY(-4px);opacity:.8}to{transform:translateY(36px);opacity:0}}
+@keyframes sunPulse{0%,100%{filter:brightness(1) drop-shadow(0 0 16px #FFD800)}50%{filter:brightness(1.15) drop-shadow(0 0 32px #FFB800)}}
+@keyframes moonGlow{0%,100%{filter:brightness(1) drop-shadow(0 0 12px #C8D8FF)}50%{filter:brightness(1.2) drop-shadow(0 0 24px #A0C0FF)}}
+@keyframes stormFlash{0%,94%,98%,100%{opacity:1}95%,97%{opacity:.4}}
 @keyframes swimLeft{from{transform:translateX(calc(100vw + 160px))}to{transform:translateX(-160px)}}
 @keyframes fishBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
 
@@ -613,6 +620,15 @@ function parseAmt(v){const n=parseFloat(String(v||'').replace(/[^0-9.\-]/g,''));
 /* ═══════════════════════════════════════════════════════
    ESTADO GLOBAL  (Supabase-first, no blob JSON)
 ═══════════════════════════════════════════════════════ */
+/* Deep-link: detectar ?join=CODE en la URL */
+let pendingJoinCode=(()=>{
+  try{
+    const code=new URLSearchParams(location.search).get('join')||sessionStorage.getItem('casitaPendingJoin')||'';
+    if(code){sessionStorage.setItem('casitaPendingJoin',code);window.history.replaceState({},'',location.pathname);}
+    return code;
+  }catch(e){return '';}
+})();
+
 let supaUser=null;
 let household=null;   // {id, name, invite_code, currency}
 let myMember=null;    // mi registro en household_members
@@ -853,13 +869,19 @@ function go(v){ui.view=v;render()}
 function showAuth(view='login'){
   const w=$('#authWrap');if(!w)return;
   const views={login:viewLogin,signup:viewSignup,forgot:viewForgotPass,
-    create:viewCreateHousehold,join:viewJoinHousehold};
+    create:viewCreateHousehold,join:viewJoinHousehold,autojoin:viewAutoJoin};
   w.innerHTML=`<div class="setup-wrap">${(views[view]||viewLogin)()}</div>`;
   w.classList.add('visible');
 }
 function hideAuth(){const w=$('#authWrap');if(w)w.classList.remove('visible')}
 
 function viewLogin(){return `
+  ${pendingJoinCode?`<div style="background:#E8F4E8;border:2px solid #8FAE8B;border-radius:16px;padding:14px;margin-bottom:16px;text-align:center">
+    <div style="font-size:28px">🏠</div>
+    <div style="font-weight:900;font-size:15px;color:#3D6A38;margin-top:4px">¡Te invitaron a un hogar!</div>
+    <div style="font-size:12px;color:#5A8A56;margin-top:3px">Inicia sesión o crea tu cuenta y te unirás automáticamente</div>
+    <div style="font-size:11px;color:#8FAE8B;margin-top:4px;font-weight:700;letter-spacing:1px">Código: ${pendingJoinCode}</div>
+  </div>`:''}
   <div class="setup-icon">🏠</div>
   <div class="setup-title">Casita</div>
   <div class="setup-sub">Tu hogar financiero</div>
@@ -877,6 +899,12 @@ function viewLogin(){return `
   </div>`
 }
 function viewSignup(){return `
+  ${pendingJoinCode?`<div style="background:#E8F4E8;border:2px solid #8FAE8B;border-radius:16px;padding:14px;margin-bottom:16px;text-align:center">
+    <div style="font-size:28px">🏠</div>
+    <div style="font-weight:900;font-size:15px;color:#3D6A38;margin-top:4px">¡Te invitaron a un hogar!</div>
+    <div style="font-size:12px;color:#5A8A56;margin-top:3px">Crea tu cuenta y te unirás automáticamente al hogar</div>
+    <div style="font-size:11px;color:#8FAE8B;margin-top:4px;font-weight:700;letter-spacing:1px">Código: ${pendingJoinCode}</div>
+  </div>`:''}
   <div class="setup-icon">🏠</div>
   <div class="setup-title">Crear cuenta</div>
   <div class="setup-sub">Accede desde cualquier dispositivo</div>
@@ -920,6 +948,19 @@ function viewCreateHousehold(){return `
   </div>
   <div style="margin-top:16px;text-align:center">
     <a class="link" data-act="authview:join">¿Te invitaron? Unirte con código →</a>
+  </div>`
+}
+function viewAutoJoin(){return `
+  <div style="text-align:center;padding:8px 0 4px">
+    <div style="font-size:48px">🏡</div>
+    <div style="font-size:22px;font-weight:900;color:var(--strong);margin-top:8px">Uniéndote al hogar</div>
+    <div style="font-size:13px;color:var(--ink2);margin-top:4px">Código: <b style="letter-spacing:2px">${pendingJoinCode}</b></div>
+  </div>
+  <div class="card" style="padding:22px;width:100%;margin-top:16px">
+    <div class="f"><label>Tu nombre (se verá en el hogar)</label>
+      <input id="hhMyName" placeholder="Ej. Ana, Jinnye..." value="${esc(supaUser?.email?.split('@')[0]||'')}"></div>
+    <div id="authErr" style="font-size:12px;font-weight:700;color:#C9695F;margin:4px 0 8px;display:none"></div>
+    <button class="btn pix" style="width:100%;margin-top:6px" data-act="hh:autojoin">Unirme al hogar →</button>
   </div>`
 }
 function viewJoinHousehold(){return `
@@ -1376,6 +1417,10 @@ function viewPresupuestos(){
       <div class="hint ${over?'bad':'good'}" style="margin-top:6px">${over?`Pasados ${money0(sp-b)}`:`Quedan ${money0(b-sp)}`}</div>
     </div>`;}).join('')||`<div class="empty">Sin presupuestos definidos.</div>`;
   return`${topbar('Presupuestos',monthLabel(ui.month),'mas','#E08585')}
+  <div class="card" style="padding:14px;border-left:4px solid #E08585;font-size:13px;color:var(--ink2);line-height:1.6">
+    📊 Los presupuestos se definen <b>por categoría</b>. En <b>Categorías → editar una categoría de gasto</b> puedes escribir el monto límite mensual. Una vez definido, aparecerá aquí con el avance del mes.
+    <div style="margin-top:8px"><a class="link" data-go="categorias" style="font-weight:900;font-size:13px">→ Ir a Categorías para agregar presupuesto</a></div>
+  </div>
   <div class="card hero"><div class="lbl">Presupuesto del mes</div>
     <div class="amount-in"><div class="totline pix">${money0(totalS)}</div><span class="cur">/ ${money0(totalB)}</span></div>
     ${totalB>0?segbar(Math.min(100,totalS/totalB*100),totalS>totalB?'#E08585':'var(--accent)'):''}
@@ -1398,6 +1443,9 @@ function viewCuentas(){
       <div class="amt ${bal<0?'bad':''}">${money0(bal)}</div></div>`;}).join('');
   return`${topbar('Cuentas','Del hogar','mas','#8FB1C9')}
   <div class="card hero"><div class="lbl">Balance total</div><div class="amount-in"><div class="totline pix">${money(totalBalance())}</div></div></div>
+  <div class="card" style="padding:12px 14px;font-size:13px;color:var(--ink2);line-height:1.55;border-left:4px solid #8FB1C9">
+    👛 Las <b>cuentas</b> representan de dónde sale o entra tu dinero: efectivo en la billetera, cuenta bancaria, tarjeta de débito, etc. Cada transacción queda vinculada a una cuenta para ver tu saldo real en cada una.
+  </div>
   <button class="btn pix" data-open="account:new" style="margin:4px 0 12px">＋ Nueva cuenta</button>
   <div class="card list">${rows}</div><div style="height:90px"></div>`;
 }
@@ -1528,13 +1576,33 @@ function weatherWidget(){
       <div style="font-size:10px;color:${sc}">${w.min}°</div>
     </div>`;
   }).join('');
-  return`<div style="background:${bg};border-radius:20px;padding:20px 18px;color:${tc}">
-    <div style="font-size:12px;font-weight:700;color:${sc};letter-spacing:.5px;margin-bottom:2px">${esc(geoCity)||'Tu ciudad'}</div>
-    <div style="font-size:76px;font-weight:200;font-family:'Outfit',sans-serif;line-height:.9;letter-spacing:-4px;margin:8px 0 4px">${Math.round(cur.temperature)}<span style="font-size:48px">°</span></div>
-    <div style="font-size:18px;font-weight:400;margin-bottom:2px">${curWmo.d}</div>
-    ${todayW?`<div style="font-size:13px;font-weight:600;color:${sc}">Máx: ${todayW.max}°  ·  Mín: ${todayW.min}°</div>`:''}
-    <div style="height:1px;background:${tc};opacity:.18;margin:14px 0 12px"></div>
-    <div style="display:flex;gap:4px;overflow-x:auto">${forecast}</div>
+  const stars=isNight?(()=>{
+    const seed=[.12,.35,.58,.79,.22,.67,.44,.91,.08,.53,.31,.75,.19,.62,.88,.41,.04,.96,.27,.72];
+    return seed.map((v,i)=>{
+      const x=(v*87+4).toFixed(1),y=((seed[(i+7)%20]*55+3)).toFixed(1);
+      const sz=(1+seed[(i+3)%20]*2).toFixed(1),dur=(2+seed[(i+11)%20]*3).toFixed(1),dl=(seed[(i+5)%20]*4).toFixed(1);
+      return`<div style="position:absolute;left:${x}%;top:${y}%;width:${sz}px;height:${sz}px;background:rgba(220,235,255,.9);border-radius:50%;animation:twinkle ${dur}s ease-in-out ${dl}s infinite;pointer-events:none"></div>`;
+    }).join('');
+  })():'';
+  const rainDrops=isRain||isStorm?Array.from({length:18},(_,i)=>{
+    const x=(i*5.5+Math.sin(i)*4).toFixed(1),dur=(.4+Math.sin(i*7)*.2).toFixed(2),dl=(i*.12).toFixed(2);
+    return`<div style="position:absolute;left:${x}%;top:0;width:1.5px;height:14px;background:rgba(180,210,255,.65);border-radius:1px;animation:rainFall ${dur}s linear ${dl}s infinite;pointer-events:none"></div>`;
+  }).join(''):'';
+  const cloudOverlay=!isNight&&!isRain&&!isStorm&&!isCloudy?'':`
+    <div style="position:absolute;right:10%;top:8%;font-size:${isCloudy||isRain?36:28}px;animation:cloudDrift 9s ease-in-out infinite;pointer-events:none;opacity:.75">${isStorm?'⛈️':isRain?'🌧️':'☁️'}</div>
+    <div style="position:absolute;right:35%;top:18%;font-size:22px;animation:cloudDrift2 13s ease-in-out 2s infinite;pointer-events:none;opacity:.55">☁️</div>`;
+  const moonEl=isNight&&!isRain&&!isStorm?`<div style="position:absolute;right:14%;top:8%;font-size:36px;animation:moonGlow 4s ease-in-out infinite;pointer-events:none">🌙</div>`:'';
+  const sunEl=!isNight&&!isCloudy&&!isRain&&!isStorm?`<div style="position:absolute;right:12%;top:6%;font-size:44px;animation:sunPulse 3s ease-in-out infinite;pointer-events:none">☀️</div>`:'';
+  return`<div style="background:${bg};border-radius:20px;padding:20px 18px;color:${tc};position:relative;overflow:hidden;min-height:200px">
+    ${stars}${rainDrops}${cloudOverlay}${moonEl}${sunEl}
+    <div style="position:relative;z-index:2">
+      <div style="font-size:12px;font-weight:700;color:${sc};letter-spacing:.5px;margin-bottom:2px">${esc(geoCity)||'Tu ciudad'}</div>
+      <div style="font-size:76px;font-weight:200;font-family:'Outfit',sans-serif;line-height:.9;letter-spacing:-4px;margin:8px 0 4px">${Math.round(cur.temperature)}<span style="font-size:48px">°</span></div>
+      <div style="font-size:18px;font-weight:400;margin-bottom:2px">${curWmo.d}</div>
+      ${todayW?`<div style="font-size:13px;font-weight:600;color:${sc}">Máx: ${todayW.max}°  ·  Mín: ${todayW.min}°</div>`:''}
+      <div style="height:1px;background:${tc};opacity:.18;margin:14px 0 12px"></div>
+      <div style="display:flex;gap:4px;overflow-x:auto">${forecast}</div>
+    </div>
   </div>`;
 }
 
@@ -1783,16 +1851,21 @@ function openItem(listId,id){
 }
 function openReminder(id){
   const editing=id&&id!=='new';const r=editing?reminders.find(x=>x.id===id):null;
-  DRAFT={_kind:'reminder',_id:editing?id:null,title:r?.title||'',amount:r?.amount||'',date:r?.date||todayISO(),recurrence:r?.recurrence||'mensual',category:r?.category_id||null,vis:r?.visibility||'hogar'};
+  DRAFT={_kind:'reminder',_id:editing?id:null,title:r?.title||'',amount:r?.amount||'',date:r?.date||todayISO(),recurrence:r?.recurrence||'mensual',category:r?.category_id||null,vis:r?.visibility||'hogar',type:r?.type||'gasto'};
   const recs=[['none','Una vez'],['diario','Diario'],['semanal','Semanal'],['quincenal','Quincenal'],['mensual','Mensual'],['anual','Anual']];
   modal(`${sheetHead(editing?'Editar recordatorio':'Nuevo recordatorio','🔔')}
-    <div class="f"><label>¿Qué pago o aviso?</label><input id="fld_title" placeholder="Ej. Renta, Netflix, Luz" value="${esc(DRAFT.title)}"></div>
+    <div class="f"><label>Tipo</label>
+      <div class="seg2" data-pick="type">
+        <button type="button" class="opt ${DRAFT.type==='gasto'?'active':''}" data-pick-val="gasto">💸 Gasto / Pago fijo</button>
+        <button type="button" class="opt ${DRAFT.type==='ingreso'?'active':''}" data-pick-val="ingreso">💰 Ingreso / Sueldo</button>
+      </div></div>
+    <div class="f"><label>${DRAFT.type==='ingreso'?'¿Qué ingreso?':'¿Qué pago o aviso?'}</label><input id="fld_title" placeholder="${DRAFT.type==='ingreso'?'Ej. Sueldo, Bono, Aguinaldo':'Ej. Netflix, Renta, Luz'}" value="${esc(DRAFT.title)}"></div>
     <div class="f2">
       <div class="f"><label>Monto (opcional)</label><input id="fld_amount" inputmode="decimal" placeholder="0" value="${esc(DRAFT.amount)}"></div>
       <div class="f"><label>Fecha</label><input id="fld_date" type="date" value="${esc(DRAFT.date)}"></div>
     </div>
     <div class="f"><label>Se repite</label>${pOpts('recurrence',recs.map(([v,l])=>({val:v,label:l})),DRAFT.recurrence)}</div>
-    <div class="f"><label>Categoría del gasto (opcional)</label>${catPicker('category','gasto',DRAFT.category)}</div>
+    <div class="f"><label>Categoría (opcional)</label>${catPicker('category',DRAFT.type,DRAFT.category)}</div>
     <div class="f"><label>Visibilidad</label><div class="seg2" data-pick="vis">
       <button type="button" class="opt ${DRAFT.vis==='hogar'?'active':''}" data-pick-val="hogar">🏠 Del hogar</button>
       <button type="button" class="opt ${DRAFT.vis==='personal'?'active':''}" data-pick-val="personal">👤 Personal</button>
@@ -1887,7 +1960,7 @@ async function saveForm(kind,andMore=false){
     }else if(kind==='reminder'){
       const title=fval('title').trim();if(!title)return shake('#fld_title');
       const prev=reminders.find(x=>x.id===DRAFT._id)||{};
-      const o={title,amount:parseAmt(fval('amount')),date:fval('date')||todayISO(),recurrence:DRAFT.recurrence||'none',category_id:DRAFT.category||null,done:prev.done||false,visibility:DRAFT.vis||'hogar'};
+      const o={title,amount:parseAmt(fval('amount')),date:fval('date')||todayISO(),recurrence:DRAFT.recurrence||'none',category_id:DRAFT.category||null,done:prev.done||false,visibility:DRAFT.vis||'hogar',type:DRAFT.type||'gasto'};
       if(DRAFT._id){await dbUpdate('casita_reminders',DRAFT._id,o);reminders=reminders.map(r=>r.id===DRAFT._id?{...r,...o}:r);}
       else{const row=await dbInsert('casita_reminders',o);reminders.push(row);}
     }else if(kind==='category'){
@@ -1960,8 +2033,9 @@ async function toggleReminder(id){
 }
 async function payReminder(id){
   const r=reminders.find(x=>x.id===id);if(!r)return;
-  if(r.amount>0){const cat=r.category_id?catById(r.category_id):categories.find(c=>c.type==='gasto');
-    const o={type:'gasto',amount:Number(r.amount),category_id:cat?.id||null,account_id:accounts[0]?.id||null,note:r.title,date:todayISO(),visibility:r.visibility||'hogar'};
+  const rType=r.type||'gasto';
+  if(r.amount>0){const cat=r.category_id?catById(r.category_id):categories.find(c=>c.type===rType);
+    const o={type:rType,amount:Number(r.amount),category_id:cat?.id||null,account_id:accounts[0]?.id||null,note:r.title,date:todayISO(),visibility:r.visibility||'hogar'};
     const row=await dbInsert('casita_transactions',o);transactions.unshift(row);}
   if(r.recurrence&&r.recurrence!=='none'){const map={diario:1,semanal:7,quincenal:15};
     const newDate=r.recurrence==='mensual'?addMonths(r.date||todayISO(),1):r.recurrence==='anual'?addMonths(r.date||todayISO(),12):addDays(r.date||todayISO(),map[r.recurrence]||30);
@@ -1985,8 +2059,9 @@ function doAct(token){
     case'authview:create': showAuth('create');return;
     case'authview:join':   showAuth('join');return;
     case'authview:offline':authGoOffline();return;
-    case'hh:create': hhCreate();return;
-    case'hh:join':   hhJoin();return;
+    case'hh:create':   hhCreate();return;
+    case'hh:join':     hhJoin();return;
+    case'hh:autojoin': hhAutoJoin();return;
     case'signout':   supaSignOut();return;
     case'copycode':   copyInviteCode();return;
     case'sharewa':    shareWhatsApp();return;
@@ -2122,7 +2197,8 @@ async function authDoSignup(){
     }
     supaUser=sd.user;
     if(btn){btn.disabled=false;btn.textContent='Crear cuenta';}
-    hideAuth();showAuth('create');
+    hideAuth();
+    if(pendingJoinCode){showAuth('autojoin');}else{showAuth('create');}
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Crear cuenta';}
     showAuthErr(e.message||'No se pudo crear la cuenta');
@@ -2144,15 +2220,15 @@ async function afterLogin(){
     const{data:mems}=await c.from('casita_household_members')
       .select('*').eq('user_id',supaUser.id).order('joined_at').limit(1);
     const mem=mems?.[0];
-    if(!mem){hideAuth();showAuth('create');return;}
+    if(!mem){hideAuth();showAuth(pendingJoinCode?'autojoin':'create');return;}
     const{data:hh}=await c.from('casita_households')
       .select('*').eq('id',mem.household_id).single();
-    if(!hh){hideAuth();showAuth('create');return;}
+    if(!hh){hideAuth();showAuth(pendingJoinCode?'autojoin':'create');return;}
     household=hh;myMember=mem;
     await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
   }catch(e){
     console.warn('afterLogin:',e);
-    hideAuth();showAuth('create');
+    hideAuth();showAuth(pendingJoinCode?'autojoin':'create');
   }
 }
 
@@ -2182,6 +2258,30 @@ async function hhCreate(){
 }
 
 /* ── Unirse al hogar ── */
+async function hhAutoJoin(){
+  const code=pendingJoinCode;
+  const myName=($('#hhMyName')||{}).value?.trim();
+  if(!myName){showAuthErr('¿Cómo te llamas?');return;}
+  if(!supaUser?.id){showAuthErr('Sesión no encontrada. Intenta de nuevo.');return;}
+  const btn=$('[data-act="hh:autojoin"]');
+  if(btn){btn.disabled=true;btn.textContent='Uniéndome...';}
+  try{
+    const c=await sb();
+    const{data:hid,error}=await c.rpc('casita_join_household',{
+      p_code:code,p_name:myName,p_icon:'👤',p_color:'#8FAE8B',p_user_id:supaUser.id
+    });
+    if(error)throw error;
+    sessionStorage.removeItem('casitaPendingJoin');
+    pendingJoinCode='';
+    const{data:hh}=await c.from('casita_households').select('*').eq('id',hid).single();
+    household=hh;await fetchAll();subscribeRealtime();hideAuth();render();fetchWeather();
+    toast('✓ ¡Bienvenida al hogar '+esc(hh.name||'')+'! 🏠');
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Unirme al hogar →';}
+    showAuthErr(e.message||'No se pudo unir al hogar');
+  }
+}
+
 async function hhJoin(){
   const code=($('#hhCode')||{}).value?.trim();
   const myName=($('#hhMyName')||{}).value?.trim();
@@ -2209,7 +2309,7 @@ async function hhJoin(){
 /* ── Auth screen show/hide ── */
 function showAuth(view){
   let wrap=$('#authWrap');if(!wrap)return;
-  const views={login:viewLogin,signup:viewSignup,forgot:viewForgotPass,create:viewCreateHousehold,join:viewJoinHousehold};
+  const views={login:viewLogin,signup:viewSignup,forgot:viewForgotPass,create:viewCreateHousehold,join:viewJoinHousehold,autojoin:viewAutoJoin};
   wrap.innerHTML=(views[view]||viewLogin)();wrap.classList.add('visible');
 }
 function hideAuth(){const w=$('#authWrap');if(w)w.classList.remove('visible');}
@@ -2330,7 +2430,7 @@ Pasos para unirte:
 
 ¡Te espero adentro! 🎉`;
 
-  const url='https://wa.me/?text='+encodeURIComponent(msg);
+  const url='https://wa.me/?text='+encodeURIComponent(msg.replace(appUrl,appUrl+'?join='+code));
   window.open(url,'_blank');
 }
 
@@ -2363,18 +2463,34 @@ function setupPWA(){
   try{
     const size=512,c=document.createElement('canvas');
     c.width=size;c.height=size;const ctx=c.getContext('2d');
-    /* Fondo verde salvia redondeado */
-    ctx.beginPath();ctx.roundRect(0,0,size,size,size*.2);
+    /* Fondo redondeado verde salvia */
+    ctx.beginPath();ctx.roundRect(0,0,size,size,size*.18);
     const g=ctx.createLinearGradient(0,0,size,size);
-    g.addColorStop(0,'#9ABF96');g.addColorStop(1,'#6A9066');
+    g.addColorStop(0,'#9EC49A');g.addColorStop(1,'#6A9866');
     ctx.fillStyle=g;ctx.fill();
-    /* Casa emoji grande */
-    ctx.font=`${size*.58}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('🏠',size*.5,size*.55);
-    /* Texto "Casita" pequeño debajo */
-    ctx.font=`900 ${size*.1}px 'Nunito',sans-serif`;
-    ctx.fillStyle='rgba(255,255,255,.85)';
-    ctx.fillText('Casita',size*.5,size*.87);
+    /* Pixel art house — 10 cols x 10 rows */
+    const COLS=10,ROWS=10;
+    const PX=Math.floor(size/COLS);
+    const OFFX=Math.round((size-COLS*PX)/2);
+    const OFFY=Math.round((size-ROWS*PX)/2);
+    const C={'0':null,'1':'#3A6835','2':'#F8EDD8','3':'#7A3C18','4':'#FFD84A','5':'#C04828'};
+    const GRID=[
+      '0000055000',
+      '0000111100',
+      '0001111110',
+      '0011111111',
+      '0022222220',
+      '0024422420',
+      '0024422420',
+      '0022222220',
+      '0022332220',
+      '0022332220',
+    ];
+    GRID.forEach((row,r)=>[...row].forEach((p,col)=>{
+      if(!C[p])return;
+      ctx.fillStyle=C[p];
+      ctx.fillRect(OFFX+col*PX,OFFY+r*PX,PX,PX);
+    }));
     const iconUrl=c.toDataURL('image/png');
     /* apple-touch-icon */
     const li=document.getElementById('appIcon')||document.createElement('link');
