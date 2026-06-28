@@ -1563,6 +1563,12 @@ function weatherWidget(){
   }
   const cur=weatherData.current_weather,curWmo=wmoInfo(cur.weathercode);
   const {bg,tc,sc}=getGradient(hr,cur.weathercode);
+  /* Variables de condición para animaciones */
+  const wxCode=cur.weathercode;
+  const isNight=hr<6||hr>=20;
+  const isRain=[61,63,65,80,81,82].some(x=>wxCode===x);
+  const isStorm=[95,96,99].some(x=>wxCode===x);
+  const isCloudy=[2,3,45,48].some(x=>wxCode===x);
   const today=todayISO();
   const todayW=weatherForDate(today);
   const forecast=weatherData.daily.time.slice(0,7).map((d,i)=>{
