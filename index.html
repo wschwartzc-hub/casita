@@ -34,7 +34,7 @@ body{
 .px{display:block;image-rendering:pixelated}
 #app{max-width:480px;margin:0 auto;height:100dvh;height:100vh;background:var(--bg);position:relative;
   display:flex;flex-direction:column;box-shadow:0 0 60px rgba(120,105,80,.08)}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px calc(120px + env(safe-area-inset-bottom, 0px));animation:fade .25s ease}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px 16px calc(120px + env(safe-area-inset-bottom, 0px));animation:fade .25s ease}
 @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* headers */
@@ -63,8 +63,9 @@ body{
 .hero .sub{font-size:12.5px;color:var(--ink2);font-weight:700;margin-top:9px}
 
 /* cards & sections */
-.card{background:var(--surface);border-radius:var(--r);box-shadow:0 3px 14px rgba(60,52,42,.09),0 1px 4px rgba(60,52,42,.05);padding:16px;border:1.5px solid rgba(234,225,211,.9);position:relative;z-index:2}
-.section-t{display:flex;align-items:center;gap:10px;margin:22px 0 12px;padding:9px 16px 9px 14px;background:linear-gradient(90deg,var(--soft) 0%,rgba(244,239,231,0) 85%);border-left:4px solid var(--head-color,var(--accent));border-radius:0 14px 14px 0;font-size:13px;font-weight:900;color:var(--head-color,var(--strong));text-transform:uppercase;letter-spacing:.9px;animation:sectionPulse 3s ease-in-out infinite}
+.card{background:var(--surface);border-radius:var(--r);box-shadow:0 3px 14px rgba(60,52,42,.09),0 1px 4px rgba(60,52,42,.05);padding:16px;border:1.5px solid rgba(234,225,211,.9);position:relative;z-index:2;margin-bottom:14px}
+.card.top2{margin-bottom:22px;padding:18px 16px}
+.section-t{display:flex;align-items:center;gap:10px;margin:26px 0 14px;padding:9px 16px 9px 14px;background:linear-gradient(90deg,var(--soft) 0%,rgba(244,239,231,0) 85%);border-left:4px solid var(--head-color,var(--accent));border-radius:0 14px 14px 0;font-size:13px;font-weight:900;color:var(--head-color,var(--strong));text-transform:uppercase;letter-spacing:.9px;animation:sectionPulse 3s ease-in-out infinite}
 .section-t .link{margin-left:auto;font-family:'Nunito';font-size:12px;color:var(--head-color,var(--strong));font-weight:800;cursor:pointer;letter-spacing:0;text-transform:none;white-space:nowrap;opacity:.85}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:11px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px}
@@ -74,10 +75,10 @@ body{
 
 /* buttons */
 .btn{appearance:none;border:none;border-radius:15px;padding:14px 16px;font-family:'Nunito';font-weight:900;
-  font-size:15px;cursor:pointer;background:var(--accent);color:#fff;box-shadow:var(--sh);width:100%;letter-spacing:.2px}
+  font-size:15px;cursor:pointer;background:var(--accent);color:#fff;box-shadow:var(--sh);width:100%;letter-spacing:.2px;margin-bottom:10px}
 .btn:active{transform:scale(.98)}
 .btn.ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line);box-shadow:none}
-.btn.sm{padding:9px 13px;font-size:13px;width:auto;border-radius:12px}
+.btn.sm{padding:9px 13px;font-size:13px;width:auto;border-radius:12px;margin-bottom:0}
 .btn.danger{background:#EBD9D9;color:#B05858}
 .btn.add{background:var(--surface);color:var(--strong);border:1.5px dashed var(--accent);box-shadow:none}
 
